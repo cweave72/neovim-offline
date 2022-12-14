@@ -1,0 +1,251 @@
+#######################################################################
+#                            VHDL Snippets                            #
+#######################################################################
+global !p
+import time
+import os.path as osp
+
+def getdate(fmt):
+    return time.strftime(fmt)
+
+def stripext(s):
+    return osp.splitext(s)[0]
+
+endglobal
+
+
+snippet sl "std_logic"
+std_logic;$0
+endsnippet
+
+snippet slv "std_logic_vector(7 downto 0);"
+std_logic_vector(${1:7} downto ${2:0});$0
+endsnippet
+
+snippet unsg "unsigned(7 downto 0);"
+unsigned(${1:7} downto ${2:0});$0
+endsnippet
+
+snippet sg "signed(7 downto 0);"
+signed(${1:7} downto ${2:0});$0
+endsnippet
+
+snippet slvv "std_logic_vector"
+std_logic_vector$0
+endsnippet
+
+snippet int "integer;"
+integer;
+endsnippet
+
+snippet int= "integer := ;"
+integer := ${1:val};$0
+endsnippet
+
+snippet lz "'0'"
+'0'$0
+endsnippet
+
+snippet lo "'1'"
+'1'$0
+endsnippet
+
+snippet < "<="
+<= $0
+endsnippet
+
+snippet > "=>"
+=> $0
+endsnippet
+
+snippet : ":="
+:= $0
+endsnippet
+
+snippet usestd "use ieee.std_logic_1164.all"
+use ieee.std_logic_1164.all; $0
+endsnippet
+
+snippet usenum "use ieee.numeric_std.all"
+use ieee.numeric_std.all; $0
+endsnippet
+
+snippet usemath "use ieee.math_real.all"
+use ieee.math_real.all; $0
+endsnippet
+
+snippet si "signal :" b
+signal ${1:name} : ${2:std_logic};$0
+endsnippet
+
+snippet dt "downto"
+downto $0
+endsnippet
+
+snippet oth "others => ('0')"
+(others => ${1:'0'})$0
+endsnippet
+
+snippet proc "process..." b
+${1:MyProc}_proc: process (${2:Clk}, ${3:Reset_n})
+begin
+    if ($3 = '0') then
+        $0
+    elsif (rising_edge($2)) then
+
+    end if;
+end process;
+endsnippet
+
+snippet if "if...endif;" b
+if (${1:expr}) then
+    $0
+end if;
+endsnippet
+
+snippet ifelse "if...else;" b
+if (${1:expr}) then
+    $0
+else
+
+end if;
+endsnippet
+
+snippet elsif "elsif...;" b
+elsif (${1:expr}) then
+    $0
+endsnippet
+
+snippet con "constant := ...;" b
+constant ${1:CONST} : ${2:type} := ${3:val};$0
+endsnippet
+
+snippet case "case ... when ..." b
+case ${1:sig} is
+    when ${2:cond} =>
+        $0
+    when others => null;
+end case;
+endsnippet
+
+snippet when "... when xx => ..." b
+when ${2:cond} =>
+    $0
+endsnippet
+
+snippet var "variable myvar_v : xxx;" b
+variable ${1:myvar}_v : ${2:type};
+endsnippet
+
+snippet arch "architecture template;" b
+architecture ${1:rtl} of ${2:`!p snip.rv = stripext(snip.fn)`} is
+    $0
+begin
+
+end architecture;
+endsnippet
+
+snippet ban "banner comment" b
+--------------------------------------------------------------------------------
+-- ${1:Text here}
+--------------------------------------------------------------------------------
+endsnippet
+
+snippet headblk "file header" b
+--------------------------------------------------------------------------------
+-- File   : `!p snip.rv = snip.fn`
+-- Author : Craig D. Weaver
+-- Created: `!p snip.rv = getdate("%m-%d-%Y")`
+--
+-- Description: ${1:enter description}
+--
+--------------------------------------------------------------------------------
+-- Revision history    :
+-- `!p snip.rv = getdate("%m-%d-%Y")` : cdw
+-- Initial coding.
+--------------------------------------------------------------------------------
+endsnippet
+
+snippet pkg "package template"
+library ieee;
+use ieee.std_logic_1164.all;
+
+package ${1:ModuleName}_CMP is
+component $1 is
+    ${2:generic(
+    );}
+    port(
+        Reset_n : in std_logic;
+        Clk     : in std_logic;
+        $0
+    );
+end component;
+end package;
+
+library ieee;
+use ieee.std_logic_1164.all;
+
+entity $1 is
+    $2
+    port(
+        Reset_n : in std_logic;
+        Clk     : in std_logic;
+    );
+end entity;
+
+architecture rtl of $1 is
+
+begin
+
+end architecture;
+endsnippet
+
+snippet tb "Testbench template" b
+--------------------------------------------------------------------------------
+-- File   : `!p snip.rv = snip.fn`
+-- Author : Craig D. Weaver
+-- Created: `!p snip.rv = getdate("%d-%m-%Y")`
+--
+-- Description: ${1:enter description}
+--
+--------------------------------------------------------------------------------
+-- Revision history    :
+-- `!p snip.rv = getdate("%m-%d-%Y")` : cdw
+-- Initial coding.
+--------------------------------------------------------------------------------
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
+use ieee.math_real.all;
+
+library modelsim_lib;
+use modelsim_lib.util.all;
+
+library work;
+use work.`!p snip.rv=stripext(snip.fn)`_CMP.all;
+
+entity `!p snip.rv = stripext(snip.fn)` is
+end entity;
+
+architecture tb of `!p snip.rv = stripext(snip.fn)` is
+
+    constant CLK_FREQUENCY : real := ${2:40000000.0};
+    constant CLK_PERIOD : real := (1.0/CLK_FREQUENCY);
+    $0
+    signal Clk     : std_logic := '0';
+    signal Reset_n : std_logic := '0';
+
+begin
+
+    Clk <= not Clk after (CLK_PERIOD/2.0) * 1.0 sec;
+
+    process is
+    begin
+        wait for 1 us;
+        wait until rising_edge(Clk);
+        Reset_n <= '1';
+        wait;
+    end process;
+
+end architecture tb;
+endsnippet
