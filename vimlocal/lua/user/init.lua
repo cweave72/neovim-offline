@@ -1,9 +1,5 @@
 local utils = require('user.utils')
 
--- Neovim-specific intializations
---
-local map = vim.api.nvim_set_keymap
-
 --require('nightfox').load('nightfox')
 --require('nightfox').load('nordfox')
 
@@ -16,6 +12,7 @@ vim.cmd("colorscheme sonokai")
 -- Load Lua user initializations
 require('user.lsp_config')
 require('user.telescope.init')
+require('user.mappings')
 
 -- nvim-tree setup
 vim.g.loaded_netrw = 1
@@ -24,9 +21,13 @@ vim.g.loaded_netrwPlugin = 1
 vim.opt.termguicolors = true
 
 require("nvim-tree").setup({
-    sort_by = "case_sensitive",
+    sort_by = "extension",
     view = {
-        adaptive_size = true,
+        side                        = "left",
+        adaptive_size               = false,
+        preserve_window_proportions = true,
+        number                      = false,
+        relativenumber              = false,
         mappings = {
             list = {
                 { key = "u", action = "dir_up" },
@@ -52,15 +53,3 @@ end
 
 -- Set Vim's notify function to use notify-nvim.
 vim.notify = require('notify')
-
--- Keymaps
---
-local opts = { noremap = true, silent = true }
-
-map('n', '<space>li', ":LspInfo<CR>", opts)
--- Map <Esc> to exit insert mode in terminal.
-map('t', '<Esc>', "<C-\\><C-n>", opts)
-
--- Custom Commands
-vim.cmd("command! ShowRtp lua ShowRtp()")
-vim.cmd("command! MdTOC lua require('ghmdtoc').process()")

@@ -42,6 +42,8 @@ if offline_mode
         "Required by ranger.vim
         Plug plugged . 'bclose.vim'
 
+        Plug plugged . 'undotree'
+
         "Nice colorscheme
         Plug plugged . 'nightfox.vim'
         Plug plugged . 'iceberg.vim'
@@ -82,6 +84,7 @@ else
         Plug 'savq/melange'
         Plug 'sainnhe/sonokai'
 
+        Plug 'mbbill/undotree'
     endif
 
 endif
