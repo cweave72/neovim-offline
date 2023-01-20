@@ -28,6 +28,8 @@ telescope.setup({
              "--smart-case",
              "--hidden",
              "--unrestricted",
+             "--ignore-file",
+             ".gitignore"
         },
     },
     extensions = {

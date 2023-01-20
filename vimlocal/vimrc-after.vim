@@ -93,5 +93,5 @@ let g:UltiSnipsJumpBackwardTrigger="<s-tab>"
 "-------------------------------------------------------------------------------
 " Plugin Specific: Ranger file manager
 " ------------------------------------------------------------------------------
-let g:ranger_replace_netrw = 1
+"let g:ranger_replace_netrw = 1
 
