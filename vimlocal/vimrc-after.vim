@@ -42,7 +42,7 @@ endfunction
 autocmd VimEnter * call NvimStartup()
 
 " Source script which manages extra plugins not provided by base config.
-source ~/linuxconfig/vimlocal/plugins.vim
+source $VIMUSERLOCALFILES/plugins.vim
 
 
 if $TERM == 'rxvt-unicode'
