@@ -125,3 +125,31 @@ nvim_lsp.pylsp.setup {
         }
     }
 }
+
+-- C (ccls)
+--
+nvim_lsp.ccls.setup {
+    on_attach = on_attach,
+    cmd = { "ccls" },
+    init_options = {
+        compilationDatabaseDirectory = "build",
+        index = {
+            threads = 0,
+        },
+        clang = {
+            excludeArgs = { "-frounding-math" },
+        },
+    }
+}
+
+-- bash
+--
+nvim_lsp.bashls.setup {
+    on_attach = on_attach,
+    cmd = { "bash-language-server", "start" },
+    cmd_env = {
+        GLOB_PATTERN = "*@(.sh|.inc|.bash|.command)"
+    },
+    filetypes = { "sh" },
+    single_file_support = true,
+}
