@@ -11,5 +11,6 @@ map('n', '<space>b', ":lua require('telescope.builtin').buffers()<CR>", opts)
 map('n', '<space>k', ":lua require('telescope.builtin').keymaps()<CR>", opts)
 
 -- Custom funcs
+map('n', '<space>wg', ":lua require('user.telescope.init').word_grep()<CR>", opts)
 map('n', '<space>g', ":lua require('user.telescope.init').grep_prompt()<CR>", opts)
 map('n', '<space>c', ":lua require('user.telescope.init').find_configs()<CR>", opts)

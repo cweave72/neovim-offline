@@ -1,6 +1,8 @@
 "Remap Shift + Space to escape.
 inoremap <S-Space> <Esc>
 
+set nomodeline
+
 set mouse=a
 " Disable spell checking for all members of the "<source>" group:
 " See Doc Mike's vimrc around line 5930
@@ -42,7 +44,13 @@ endfunction
 autocmd VimEnter * call NvimStartup()
 
 " Source script which manages extra plugins not provided by base config.
+"source ~/linuxconfig/vimlocal/plugins.vim
 source $VIMUSERLOCALFILES/plugins.vim
+
+" Custom plugins:
+source $VIMUSERLOCALFILES/custom_plugins/docsync/plugin/docsync.vim
+let g:Docsync_loglevel = "info"
+let g:Docsync_enable_logging = 1
 
 
 if $TERM == 'rxvt-unicode'
@@ -53,6 +61,8 @@ endif
 " Set tab settings for filetypes:
 autocmd Filetype htmldjango setlocal ts=4 sw=4 sts=4 expandtab
 autocmd Filetype css setlocal ts=4 sw=4 sts=4 expandtab
+autocmd Filetype proto setlocal ts=4 sw=4 sts=4 expandtab
+autocmd Filetype matlab setlocal ts=4 sw=4 sts=4 expandtab
 
 "-------------------------------------------------------------------------------
 " Custom Functions/Commands
@@ -95,3 +105,4 @@ let g:UltiSnipsJumpBackwardTrigger="<s-tab>"
 " ------------------------------------------------------------------------------
 "let g:ranger_replace_netrw = 1
 
+let g:undotree_WindowLayout=2

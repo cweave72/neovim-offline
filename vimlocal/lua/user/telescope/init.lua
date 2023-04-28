@@ -82,4 +82,11 @@ function M.find_configs()
     }
 end
 
+function M.word_grep()
+    local cword = vim.fn.expand("<cword>")
+    require("telescope.builtin").live_grep({
+        default_text = cword
+        })
+end
+
 return M
