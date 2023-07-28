@@ -2,7 +2,7 @@ local M = {}
 
 function M.get(spec, config)
   local trans = config.transparent
-  local alt = config.dim_inactive
+  local inactive = config.dim_inactive
   local inv = config.inverse
   local fg_search = spec.palette.meta.light and "#FFFFFF" or "#000000"
 
@@ -40,7 +40,7 @@ function M.get(spec, config)
     MoreMsg         = { fg = spec.diag.info, style = "bold" }, -- |more-prompt|
     NonText         = { fg = spec.bg4 }, -- '@' at the end of the window, characters from 'showbreak' and other characters that do not really exist in the text (e.g., ">" displayed when a double-wide character doesn't fit at the end of the line). See also |hl-EndOfBuffer|.
     Normal          = { fg = spec.fg1, bg = trans and "NONE" or spec.bg1 }, -- normal text
-    NormalNC        = alt and { fg = spec.fg1, bg = spec.bg0 } or { link = "Normal" },
+    NormalNC        = { fg = spec.fg1, bg = (inactive and spec.bg0) or (trans and "NONE") or spec.bg1 }, -- normal text in non-current windows
     NormalFloat     = { fg = spec.fg1, bg = spec.bg0 }, -- Normal text in floating windows.
     FloatBorder     = { fg = spec.fg3 }, -- TODO
     Pmenu           = { fg = spec.fg1, bg = spec.sel0 }, -- Popup menu: normal item.
@@ -50,7 +50,7 @@ function M.get(spec, config)
     Question        = { link = "MoreMsg" }, -- |hit-enter| prompt and yes/no questions
     QuickFixLine    = { link = "CursorLine" }, -- Current |quickfix| item in the quickfix window. Combined with |hl-CursorLine| when the cursor is there.
     Search          = inv.search and { style = "reverse" } or { fg = spec.fg1, bg = spec.sel1 }, -- Last search pattern highlighting (see 'hlsearch').  Also used for similar items that need to stand out.
-    IncSearch       = inv.search and { style = "reverse" } or { fg = fg_search, bg = spec.diag.hint }, -- 'incsearch' highlighting; also used for the text replaced with ":s///c"
+    IncSearch       = inv.search and { style = "reverse" } or { fg = spec.bg1, bg = spec.diag.hint }, -- 'incsearch' highlighting; also used for the text replaced with ":s///c"
     CurSearch       = { link = "IncSearch"}, -- Search result under cursor (available since neovim >0.7.0 (https://github.com/neovim/neovim/commit/b16afe4d556af7c3e86b311cfffd1c68a5eed71f)).
     SpecialKey      = { link = "NonText" }, -- Unprintable characters: text displayed differently from what it really is.  But not 'listchars' whitespace. |hl-Whitespace|
     SpellBad        = { sp = spec.diag.error, style = "undercurl" }, -- Word that is not recognized by the spellchecker. |spell| Combined with the highlighting used otherwise.
@@ -63,14 +63,14 @@ function M.get(spec, config)
     TabLine         = { fg = spec.fg2, bg = spec.bg2 }, -- tab pages line, not active tab page label
     TabLineFill     = { bg = spec.bg0 }, -- tab pages line, where there are no labels
     TabLineSel      = { fg = spec.bg1, bg = spec.fg3 }, -- tab pages line, active tab page label
-    Title           = { fg = spec.syntax.func }, -- titles for output from ":set all", ":autocmd" etc.
+    Title           = { fg = spec.syntax.func, style = "bold" }, -- titles for output from ":set all", ":autocmd" etc.
     Visual          = inv.visual and { style = "reverse" } or { bg = spec.sel0 }, -- Visual mode selection
     VisualNOS       = inv.visual and { style = "reverse" } or { link = "visual" }, -- Visual mode selection when vim is "Not Owning the Selection".
     WarningMsg      = { fg = spec.diag.warn }, -- warning messages
     Whitespace      = { fg = spec.bg3 }, -- "nbsp", "space", "tab" and "trail" in 'listchars'
     WildMenu        = { link = "Pmenu" }, -- current match in 'wildmenu' completion
     WinBar          = { fg = spec.fg3, bg = trans and "NONE" or spec.bg1, style = "bold" }, -- Window bar of current window.
-    WinBarNC        = { fg = spec.fg3, bg = trans and "NONE" or alt and spec.bg0 or spec.bg1, style = "bold" }, --Window bar of not-current windows.
+    WinBarNC        = { fg = spec.fg3, bg = trans and "NONE" or inactive and spec.bg0 or spec.bg1, style = "bold" }, --Window bar of not-current windows.
 
     -- qfLineNr        = {},
     -- qfFileName      = {},

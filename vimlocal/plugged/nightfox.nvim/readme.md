@@ -17,7 +17,7 @@
 
 <div align="center">
   <h3>Nightfox</h3><img src="https://user-images.githubusercontent.com/2746374/158456286-9e3ee657-60e6-49d8-b85e-dcab285b31c3.png" alt="nightfox" style="border-radius:1%" />
-  <h3>Dayfox</h3><img src="https://user-images.githubusercontent.com/2746374/158456281-e8a968c0-e282-4943-b919-3d8454ca0529.png" alt="dayfox" style="border-radius:1%" />
+  <h3>Dayfox</h3><img src="https://user-images.githubusercontent.com/2746374/210672782-6b8690d0-3ef5-4f32-bdea-4f0a97b9d9d5.png" alt="dayfox" style="border-radius:1%" />
   <h3>Dawnfox</h3><img src="https://user-images.githubusercontent.com/2746374/158456278-c5d656de-c445-44b8-9813-9fc91ffbce4c.png" alt="dawnfox" style="border-radius:1%" />
   <h3>Duskfox</h3><img src="https://user-images.githubusercontent.com/2746374/158456284-b6ff583f-c0bb-417c-b2d5-60b8364049a7.png" alt="duskfox" style="border-radius:1%" />
   <h3>Nordfox</h3><img src="https://user-images.githubusercontent.com/2746374/158456289-eee096df-7ea7-4161-9199-808fdba58e06.png" alt="nordfox" style="border-radius:1%" />
@@ -30,7 +30,7 @@
 > that can be added to your own config check out [misc/feline.lua][misc-feline] and [misc/tabby.lua][misc-tabby].
 
 [tabby.nvim]: https://github.com/nanozuki/tabby.nvim
-[feline.nvim]: https://github.com/feline-nvim/feline.nvim
+[feline.nvim]: https://github.com/freddiehaddad/feline.nvim
 [tabby]: https://github.com/EdenEast/nyx/blob/573ff3f22da95c00ec71a094b3e1ec166c0afcdd/config/.config/nvim/lua/eden/modules/ui/tabby.lua
 [feline]: https://github.com/EdenEast/nyx/blob/573ff3f22da95c00ec71a094b3e1ec166c0afcdd/config/.config/nvim/lua/eden/modules/ui/feline/init.lua
 [conf-colors]: https://github.com/EdenEast/nyx/blob/573ff3f22da95c00ec71a094b3e1ec166c0afcdd/config/.config/nvim/lua/eden/modules/ui/colors.lua
@@ -41,6 +41,7 @@
 
 - Supports both vim and neovim
 - Highly configurable with template overriding
+- [Colorblind](#colorblind) mode (daltonization, and simulation)
 - Support for multiple [plugins](#supported-plugins) and [status lines](#status-lines)
   - And many others should "just work"!
 - [Compile](#compile) user's configuration for fast startup times
@@ -49,7 +50,7 @@
 
 ## Requirements
 
-- Neovim >= 0.5 **or** Vim 8.2 with lua = **5.1** or **5.2**
+- Neovim >= 0.8 **or** Vim 9 with lua = **5.1+**
 - True color support
 - Undercurl terminal support (optional)
 
@@ -61,6 +62,10 @@
 ## Installation
 
 Download with your favorite package manager.
+
+```lua
+{ "EdenEast/nightfox.nvim" } -- lazy
+```
 
 ```lua
 use "EdenEast/nightfox.nvim" -- Packer
@@ -93,12 +98,21 @@ require('nightfox').setup({
     -- Compiled file's destination location
     compile_path = vim.fn.stdpath("cache") .. "/nightfox",
     compile_file_suffix = "_compiled", -- Compiled file suffix
-    transparent = false,    -- Disable setting background
-    terminal_colors = true, -- Set terminal colors (vim.g.terminal_color_*) used in `:terminal`
-    dim_inactive = false,   -- Non focused panes set to alternative background
-    module_default = true,  -- Default enable value for modules
-    styles = {              -- Style to be applied to different syntax groups
-      comments = "NONE",    -- Value is any valid attr-list value `:help attr-list`
+    transparent = false,     -- Disable setting background
+    terminal_colors = true,  -- Set terminal colors (vim.g.terminal_color_*) used in `:terminal`
+    dim_inactive = false,    -- Non focused panes set to alternative background
+    module_default = true,   -- Default enable value for modules
+    colorblind = {
+      enable = false,        -- Enable colorblind support
+      simulate_only = false, -- Only show simulated colorblind colors and not diff shifted
+      severity = {
+        protan = 0,          -- Severity [0,1] for protan (red)
+        deutan = 0,          -- Severity [0,1] for deutan (green)
+        tritan = 0,          -- Severity [0,1] for tritan (blue)
+      },
+    },
+    styles = {               -- Style to be applied to different syntax groups
+      comments = "NONE",     -- Value is any valid attr-list value `:help attr-list`
       conditionals = "NONE",
       constants = "NONE",
       functions = "NONE",
@@ -384,6 +398,76 @@ print(vim.inspect(alt_bg:to_hsv()))
 There are a lot of useful functions to manipulate and work with colors in different color spaces.
 See [Usage](./usage.md#color) for more information on `Color`.
 
+## Colorblind
+
+For individuals with `color vision deficiency` (cvd), nightfox has implemented a `colorblind` mode to help enhance color
+contrast. This can be enabled with this option `colorblind.enable`.
+
+<details>
+<summary>Understanding cvd</summary>
+
+There are three types of cvd:
+
+- Protan (Red / L cones)
+- Deutan (Green / M cones)
+- Tritan (Blue / S cones)
+
+These are referred to as `protanomaly`, `deuteranomaly`, and `tritanomaly` for individuals that have all three cones
+(trichromats) but one is week (anomalous trichromacy).
+
+These can also be referred to as `protanopia`, `deuteranopia`, and `tritanopia`. This is for individuals that only have
+two cones (dichromats or dichromacy).
+
+| Cone      | Type   | Week (trichromacy) | Missing (Dichromacy) |
+| --------- | ------ | ------------------ | -------------------- |
+| L / Red   | Protan | Protanomaly        | Protanopia           |
+| M / Green | Deutan | Deuteranomaly      | Deuteranopia         |
+| S / Blue  | Tritan | Tritanomaly        | Tritanopia           |
+
+</details>
+
+### Configuring cvd
+
+Nightfox needs to simulate your cvd in order to shift colors correctly. This is done by setting your cvd type's severity
+level. Severity is a value between `0` and `1` where `1` is full dichromacy. You can also have multiple kinds of cvd
+configured at a time. Here is a full example:
+
+```lua
+require("nightfox").setup({
+  options = {
+    colorblind = {
+      enable = true,
+      severity = {
+        protan = 0.3,
+        deutan = 0.6,
+      },
+    },
+  },
+})
+```
+
+If you are looking for a way to self evaluate what severity factor to use, check out [daltonlens's][cb-self-eval] self
+evaluation article with interactive self evaluation Ishihasa plates.
+
+Another method would be to use the option `colorblind.simulate_only` option along with nightfox's
+[interactive](#interactive) mode. While nightfox is simulating cvd set a severity to 1. Now decrease the severity
+incrementally until you cannot perceive a difference in the change of colors.
+
+[cb-self-eval]: https://daltonlens.org/evaluating-cvd-simulation/#Generating-Ishihara-like-plates-for-self-evaluation
+
+### How does this work?
+
+This is accomplished by applying an algorithm called `Daltonization`. The process follows these steps:
+
+1. Simulate what a person with cvd would see
+1. Calculate the difference between original vs. simulated
+1. Shift the difference towards the visible spectrum of the cvd individual
+1. Correct original color by adding it to the corrected difference
+
+You can see the simulated colors instead of the corrected colors by setting the option `colorblind.simulate_only`.
+
+![cvd-example](https://user-images.githubusercontent.com/2746374/210025850-9a84b142-e989-4efa-9b55-5f7312013da3.gif)
+
 ## Compile
 
 Nightfox is a highly customizable and configurable colorscheme. This does however come at the cost of complexity and
@@ -418,7 +502,7 @@ This command will attach an autocmd to the current buffer that executes on `Buff
 autocmd will clear nightfox's internal state and re-source it's config from the newly saved file. It will then reset the
 colorscheme.
 
-![demo](https://user-images.githubusercontent.com/2746374/163106922-aa7a2f40-0c67-4aed-addc-5c4444c3a814.gif)
+![demo](https://user-images.githubusercontent.com/2746374/211108157-b5221ea4-9369-453d-9c27-4a71ac161a55.gif)
 
 There are a few things to note:
 
@@ -428,6 +512,7 @@ There are a few things to note:
 
 ## Supported Plugins
 
+- [alpha-nvim](https://github.com/goolord/alpha-nvim)
 - [aerial.nvim](https://github.com/stevearc/aerial.nvim)
 - [barbar.nvim](https://github.com/romgrk/barbar.nvim)
 - [nvim-cmp](https://github.com/hrsh7th/nvim-cmp)
@@ -443,18 +528,22 @@ There are a few things to note:
 - [lightspeed.nvim](https://github.com/ggandor/lightspeed.nvim)
 - [lspsaga.nvim](https://github.com/glepnir/lspsaga.nvim)
 - [lsp-trouble.nvim](https://github.com/simrat39/lsp-trouble.nvim)
+- [indent-blankline.nvim](https://github.com/lukas-reineke/indent-blankline.nvim)
 - [mini.nvim](https://github.com/echasnovski/mini.nvim)
 - [modes.nvim](https://github.com/mvllow/modes.nvim)
+- [nvim-navic](https://github.com/SmiteshP/nvim-navic)
 - [neogit](https://github.com/TimUntersberger/neogit)
 - [neotest](https://github.com/nvim-neotest/neotest)
 - [neo-tree](https://github.com/nvim-neo-tree/neo-tree.nvim)
 - [nvim-notify](https://github.com/rcarriga/nvim-notify)
 - [nvim-tree.lua](https://github.com/kyazdani42/nvim-tree.lua)
 - [pounce.nvim](https://github.com/rlane/pounce.nvim)
+- [vim-signify](https://github.com/mhinz/vim-signify)
 - [vim-sneak](https://github.com/justinmk/vim-sneak)
 - [symbols-outline.nvim](https://github.com/simrat39/symbols-outline.nvim)
 - [telescope.nvim](https://github.com/nvim-telescope/telescope.nvim)
 - [nvim-ts-rainbow](https://github.com/p00f/nvim-ts-rainbow)
+- [nvim-ts-rainbow2](https://github.com/HiPhish/nvim-ts-rainbow2)
 - [which-key.nvim](https://github.com/folke/which-key.nvim)
 
 ## Status lines
@@ -533,9 +622,11 @@ There are [extra](./extra) configuration files for the following:
 - [kitty](https://sw.kovidgoyal.net/kitty/overview/#configuring-kitty)
 - [konsole](https://konsole.kde.org/)
 - [tmux](https://github.com/tmux/tmux)
+- [warp](https://www.warp.dev/)
 - [wezterm](https://wezfurlong.org/wezterm/config/appearance.html#defining-a-color-scheme-in-a-separate-file)
 - [windows terminal](https://github.com/Microsoft/Terminal)
 - [xresources](https://wiki.archlinux.org/title/X_resources)
+- [zellij](https://zellij.dev/)
 
 [lualine]: https://github.com/nvim-lualine/lualine.nvim
 [lightline]: https://github.com/itchyny/lightline.vim
@@ -548,6 +639,7 @@ There are [extra](./extra) configuration files for the following:
 - [coolers](https://coolers.co) (useful color information and palette tool)
 - [colorhexa](https://www.colorhexa.com/) (detailed color information)
 - [neogit](https://github.com/TimUntersberger/neogit/blob/b688a2c/lua/neogit/lib/color.lua) (base for color lib)
+- [daltonlens](https://daltonlens.org/) (understanding cvd simulations and research. Thanks [@nburrus](https://github.com/nburrus)!)
 
 ## References
 

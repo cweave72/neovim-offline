@@ -16,8 +16,9 @@ let offline_mode = 1
 call plug#begin(plugged)
 
 if offline_mode
-    " Vim plugins (see below for git paths for online mode)
+    " Vim or Nvim plugins (see below for git paths for online mode)
     Plug plugged . 'ranger.vim'
+    Plug plugged . 'Align'
 
     " Add neovim plugins.
     if has('nvim')
@@ -42,18 +43,25 @@ if offline_mode
         "Required by ranger.vim
         Plug plugged . 'bclose.vim'
 
-        Plug plugged . 'undotree'
-
         "Nice colorscheme
         Plug plugged . 'nightfox.vim'
         Plug plugged . 'iceberg.vim'
         Plug plugged . 'melange'
         Plug plugged . 'sonokai'
 
+        Plug plugged . 'undotree'
+
+        " cscope_maps dependencies
+        Plug plugged . 'cscope_maps.nvim'
+        Plug plugged . 'which-key.nvim'
+
     endif
 else
-    " Vim plugins
+    " Vim or NVim plugins
     Plug 'francoiscabrol/ranger.vim'
+    Plug 'vim-scripts/Align'
+
+    "Plug 'davidhalter/jedi-vim'   "using pyls now. Keep for reference.
 
     " Add neovim plugins.
     if has('nvim')
@@ -78,13 +86,18 @@ else
         "Required by ranger.vim
         Plug 'rbgrouleff/bclose.vim'
 
-        "Nice colorscheme
+        "Nice colorschemes
         Plug 'EdenEast/nightfox.nvim'
         Plug 'cocopon/iceberg.vim'
         Plug 'savq/melange'
         Plug 'sainnhe/sonokai'
 
         Plug 'mbbill/undotree'
+
+        " cscope_maps dependencies
+        Plug 'dhananjaylatkar/cscope_maps.nvim'
+        Plug 'folke/which-key.nvim'
+
     endif
 
 endif

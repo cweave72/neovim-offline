@@ -1,9 +1,10 @@
 local notify = require "nvim-tree.notify"
-
 local log = require "nvim-tree.log"
 local utils = require "nvim-tree.utils"
 
-local M = {}
+local M = {
+  config = {},
+}
 
 local Event = {
   _events = {},
@@ -54,7 +55,14 @@ function Event:start()
   local event_cb = vim.schedule_wrap(function(err, filename)
     if err then
       log.line("watcher", "event_cb '%s' '%s' FAIL : %s", self._path, filename, err)
-      self:destroy(string.format("File system watcher failed (%s) for path %s, halting watcher.", err, self._path))
+      local message = string.format("File system watcher failed (%s) for path %s, halting watcher.", err, self._path)
+      if err == "EPERM" and (utils.is_windows or utils.is_wsl) then
+        -- on directory removal windows will cascade the filesystem events out of order
+        log.line("watcher", message)
+        self:destroy()
+      else
+        self:destroy(message)
+      end
     else
       log.line("watcher", "event_cb '%s' '%s'", self._path, filename)
       for _, listener in ipairs(self._listeners) do
@@ -65,7 +73,15 @@ function Event:start()
 
   rc, _, name = self._fs_event:start(self._path, FS_EVENT_FLAGS, event_cb)
   if rc ~= 0 then
-    notify.warn(string.format("Could not start the fs_event watcher for path %s : %s", self._path, name))
+    local warning = string.format("Could not start the fs_event watcher for path %s : %s", self._path, name)
+    if name == "EMFILE" then
+      M.disable_watchers(
+        warning,
+        "Please see https://github.com/nvim-tree/nvim-tree.lua/wiki/Troubleshooting#could-not-start-fs_event-for-path--emfile"
+      )
+    else
+      notify.warn(warning)
+    end
     return false
   end
 
@@ -99,6 +115,8 @@ function Event:destroy(message)
   end
 
   Event._events[self._path] = nil
+
+  self.destroyed = true
 end
 
 function Watcher:new(path, files, callback, data)
@@ -139,9 +157,20 @@ function Watcher:destroy()
   self._event:remove(self._listener)
 
   utils.array_remove(Watcher._watchers, self)
+
+  self.destroyed = true
 end
 
 M.Watcher = Watcher
+
+--- Permanently disable watchers and purge all state following a catastrophic error.
+--- @param warning string
+--- @param detail string
+function M.disable_watchers(warning, detail)
+  notify.warn(string.format("%s Disabling watchers: %s", warning, detail))
+  M.config.filesystem_watchers.enable = false
+  require("nvim-tree").purge_all_state()
+end
 
 function M.purge_watchers()
   log.line("watcher", "purge_watchers")
@@ -153,6 +182,35 @@ function M.purge_watchers()
   for _, e in pairs(Event._events) do
     e:destroy()
   end
+end
+
+--- Windows NT will present directories that cannot be enumerated.
+--- Detect these by attempting to start an event monitor.
+--- @param path string
+--- @return boolean
+function M.is_fs_event_capable(path)
+  if not utils.is_windows then
+    return true
+  end
+
+  local fs_event = vim.loop.new_fs_event()
+  if not fs_event then
+    return false
+  end
+
+  if fs_event:start(path, FS_EVENT_FLAGS, function() end) ~= 0 then
+    return false
+  end
+
+  if fs_event:stop() ~= 0 then
+    return false
+  end
+
+  return true
+end
+
+function M.setup(opts)
+  M.config.filesystem_watchers = opts.filesystem_watchers
 end
 
 return M

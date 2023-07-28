@@ -2,6 +2,7 @@ local M = {}
 
 local config = {
   threshold = vim.log.levels.INFO,
+  absolute_path = true,
 }
 
 local modes = {
@@ -13,19 +14,13 @@ local modes = {
 }
 
 do
-  local has_notify, notify_plugin = pcall(require, "notify")
-
   local dispatch = function(level, msg)
     if level < config.threshold then
       return
     end
 
     vim.schedule(function()
-      if has_notify and notify_plugin then
-        notify_plugin(msg, level, { title = "NvimTree" })
-      else
-        vim.notify("[NvimTree] " .. msg, level)
-      end
+      vim.notify(msg, level, { title = "NvimTree" })
     end)
   end
 
@@ -36,9 +31,18 @@ do
   end
 end
 
+function M.render_path(path)
+  if config.absolute_path then
+    return path
+  else
+    return vim.fn.fnamemodify(path .. "/", ":h:t")
+  end
+end
+
 function M.setup(opts)
   opts = opts or {}
   config.threshold = opts.notify.threshold or vim.log.levels.INFO
+  config.absolute_path = opts.notify.absolute_path
 end
 
 return M

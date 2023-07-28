@@ -1,0 +1,25 @@
+snippet newhdr "Header banner"
+/*******************************************************************************
+ *  @file: `!p snip.rv = snip.fn`
+ *   
+ *  @brief: ${1:enter description}
+*******************************************************************************/
+#ifndef ${2:HEADER_NAME}_H
+#define $2_H
+
+$0
+
+#endif
+endsnippet
+
+snippet newsrc "Source banner"
+/*******************************************************************************
+ *  @file: `!p snip.rv = snip.fn`
+ *  
+ *  @brief: ${1:enter description}
+*******************************************************************************/
+endsnippet
+
+snippet brief	"/** @brief ... */"
+/** @brief ${1:Comment} */
+endsnippet

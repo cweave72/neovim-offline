@@ -1,10 +1,9 @@
 local config = require("nightfox.config")
 local util = require("nightfox.util")
 local parse_styles = require("nightfox.lib.highlight").parse_style
-
-local is_nvim = util.is_nvim
-local cmd = is_nvim and "vim.cmd" or "vim.command"
 local fmt = string.format
+
+local M = {}
 
 local function inspect(t)
   local list = {}
@@ -21,51 +20,27 @@ local function should_link(link)
   return link and link ~= ""
 end
 
-local function nvim_highlight(name, values)
-  if should_link(values.link) then
-    return fmt([[vim.api.nvim_set_hl(0, "%s", { link = "%s" })]], name, values.link)
-  end
-
-  local opts = parse_styles(values.style)
-  opts.bg = values.bg
-  opts.fg = values.fg
-  opts.sg = values.sg
-  return fmt([[vim.api.nvim_set_hl(0, "%s", %s)]], name, inspect(opts))
-end
-
-local function vim_highlight(name, values)
-  if should_link(values.link) then
-    return fmt([[%s("highlight! link %s %s")]], cmd, name, values.link)
-  end
-  return fmt(
-    [[%s("highlight %s guifg=%s guibg=%s gui=%s guisp=%s")]],
-    cmd,
-    name,
-    values.fg or "NONE",
-    values.bg or "NONE",
-    values.style or "NONE",
-    values.sp or "NONE"
-  )
-end
-
-local highlight = is_nvim and nvim_highlight or vim_highlight
-
-local M = {}
-
 function M.compile(opts)
   opts = opts or {}
   local style = opts.style or config.fox
   local spec = require("nightfox.spec").load(style)
   local groups = require("nightfox.group").from(spec)
-
-  local lines = { [[require("nightfox").compiled = string.dump(function()]] }
-  table.insert(lines, fmt([[if vim.g.colors_name then %s("hi clear") end]], cmd))
-  table.insert(lines, fmt([[vim.g.colors_name = "%s"]], style))
-
   local background = spec.palette.meta.light and "light" or "dark"
-  local bg_fmt_str = is_nvim and [[vim.o.background = "%s"]] or [[vim.command("set background=%s")]]
-  table.insert(lines, fmt(bg_fmt_str, background))
-  table.insert(lines, is_nvim and [[vim.o.termguicolors = true]] or [[vim.command("set termguicolors")]])
+
+  local lines = {
+    fmt(
+      [[
+return string.dump(function()
+local h = vim.api.nvim_set_hl
+if vim.g.colors_name then vim.cmd("hi clear") end
+vim.o.termguicolors = true
+vim.g.colors_name = "%s"
+vim.o.background = "%s"
+    ]],
+      style,
+      background
+    ),
+  }
 
   if config.options.terminal_colors then
     local terminal = require("nightfox.group.terminal").get(spec)
@@ -74,21 +49,53 @@ function M.compile(opts)
     end
   end
 
-  for group, values in pairs(groups) do
-    table.insert(lines, highlight(group, values))
+  for name, values in pairs(groups) do
+    if should_link(values.link) then
+      table.insert(lines, fmt([[h(0, "%s", { link = "%s" })]], name, values.link))
+    else
+      local op = parse_styles(values.style)
+      op.bg = values.bg
+      op.fg = values.fg
+      op.sp = values.sp
+      table.insert(lines, fmt([[h(0, "%s", %s)]], name, inspect(op)))
+    end
   end
 
   table.insert(lines, "end)")
 
   opts.name = style
   local output_path, output_file = config.get_compiled_info(opts)
-
   util.ensure_dir(output_path)
 
-  local file = io.open(output_file, "wb")
-  local ld = load or loadstring -- loadstring == 5.1, load >= 5.2
-  ld(table.concat(lines, "\n"), "=")()
-  file:write(require("nightfox").compiled)
+  local file
+  if vim.g.nightfox_debug then
+    file = io.open(output_file .. ".lua", "wb")
+    file:write(table.concat(lines, "\n"))
+    file:close()
+  end
+
+  file = io.open(output_file, "wb")
+
+  local f = loadstring(table.concat(lines, "\n"), "=")
+  if not f then
+    local tmpfile = util.join_paths(util.get_tmp_dir(), "nightfox_error.lua")
+    require("nightfox.lib.log").error(fmt(
+      [[There is an error in your nigtfox config.
+You can open '%s' for debugging.
+
+If you think this is a bug, kindly open an issue and attach '%s' file.
+Bellow is the error message:
+]],
+      tmpfile,
+      tmpfile
+    ))
+    local efile = io.open(tmpfile, "wb")
+    efile:write(table.concat(lines, "\n"))
+    efile:close()
+    dofile(tmpfile)
+  end
+
+  file:write(f())
   file:close()
 end
 

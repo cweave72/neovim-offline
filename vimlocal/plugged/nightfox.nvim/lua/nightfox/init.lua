@@ -1,9 +1,33 @@
+local is_vim = vim.fn.has("nvim") ~= 1
+if is_vim then
+  require("nightfox.lib.vim")
+end
+
 local config = require("nightfox.config")
+
+local function read_file(filepath)
+  local file = io.open(filepath, "r")
+  if file then
+    local content = file:read()
+    file:close()
+    return content
+  end
+end
+
+local function write_file(filepath, content)
+  local file = io.open(filepath, "wb")
+  if file then
+    file:write(content)
+    file:close()
+  end
+end
 
 local M = {}
 
 function M.compile()
-  local compiler = require("nightfox.lib.compiler")
+  require("nightfox.lib.log").clear()
+
+  local compiler = require("nightfox.lib." .. (is_vim and "vim." or "") .. "compiler")
   local foxes = require("nightfox.palette").foxes
   for _, style in ipairs(foxes) do
     compiler.compile({ style = style })
@@ -17,10 +41,15 @@ end
 
 -- Avold g:colors_name reloading
 local lock = false
+local did_setup = false
 
 function M.load(opts)
   if lock then
     return
+  end
+
+  if not did_setup then
+    M.setup()
   end
 
   opts = opts or {}
@@ -34,12 +63,14 @@ function M.load(opts)
     f = loadfile(compiled_file)
   end
 
+  ---@diagnostic disable-next-line: need-check-nil
   f()
 
   lock = false
 end
 
 function M.setup(opts)
+  did_setup = true
   opts = opts or {}
 
   local override = require("nightfox.override")
@@ -61,55 +92,19 @@ function M.setup(opts)
   end
 
   local util = require("nightfox.util")
-  local is_nvim = util.is_nvim
-  local fstat = is_nvim and vim.loop.fs_stat or function(_) end
+  util.ensure_dir(config.options.compile_path)
 
-  local cached_stat = util.join_paths(config.options.compile_path, "stat")
-  local file = io.open(cached_stat)
-  local last_stat = nil
-  if file then
-    last_stat = file:read()
-    file:close()
+  local cached_path = util.join_paths(config.options.compile_path, "cache")
+  local cached = read_file(cached_path)
+
+  local git_path = util.join_paths(debug.getinfo(1).source:sub(2, -23), ".git")
+  local git = vim.fn.getftime(git_path)
+  local hash = require("nightfox.lib.hash")(opts) .. (git == -1 and git_path or git)
+
+  if cached ~= hash then
+    M.compile()
+    write_file(cached_path, hash)
   end
-
-  -- Get the file stat of the file that called `setup` and nightfox's ORIG_HEAD file
-  -- This means that any changes to either the file that called setup of nightfox itself change
-  -- then the stat saved will be different and needs to be re-compiled
-  local user_stat = fstat(debug.getinfo(2).source:sub(2))
-  local nf_git_stat = fstat(util.join_paths(debug.getinfo(1).source:sub(2, -24), ".git", "ORIG_HEAD"))
-  local cur_stat = (user_stat and user_stat.mtime.sec or 0) + (nf_git_stat and nf_git_stat.mtime.sec or 0)
-
-  if not user_stat or last_stat ~= tostring(cur_stat) then
-    util.ensure_dir(config.options.compile_path)
-
-    if is_nvim then
-      file = io.open(cached_stat, "wb")
-      if file then
-        file:write(cur_stat)
-        file:close()
-      end
-    end
-
-    local cached_config = util.join_paths(config.options.compile_path, "config")
-    file = io.open(cached_config)
-    local cached_hash = nil
-    if file then
-      cached_hash = file:read()
-      io.close(file)
-    end
-
-    local current_config_hash = config.hash() + override.hash()
-    if cached_hash ~= tostring(current_config_hash) then
-      M.compile()
-      file = io.open(cached_config, "wb")
-      if file then
-        file:write(current_config_hash)
-        file:close()
-      end
-    end
-  end
-
-  require("nightfox.util.deprecation").check_deprecation(opts)
 end
 
 return M

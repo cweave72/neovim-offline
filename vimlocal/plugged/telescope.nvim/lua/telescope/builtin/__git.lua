@@ -200,8 +200,11 @@ git.branches = function(opts)
     .. "%(authorname)"
     .. "%(upstream:lstrip=2)"
     .. "%(committerdate:format-local:%Y/%m/%d %H:%M:%S)"
-  local output =
-    utils.get_os_command_output({ "git", "for-each-ref", "--perl", "--format", format, opts.pattern }, opts.cwd)
+  local output = utils.get_os_command_output(
+    { "git", "for-each-ref", "--perl", "--format", format, "--sort", "-authordate", opts.pattern },
+    opts.cwd
+  )
+  local show_remote_tracking_branches = vim.F.if_nil(opts.show_remote_tracking_branches, true)
 
   local results = {}
   local widths = {
@@ -224,7 +227,11 @@ git.branches = function(opts)
     }
     local prefix
     if vim.startswith(entry.refname, "refs/remotes/") then
-      prefix = "refs/remotes/"
+      if show_remote_tracking_branches then
+        prefix = "refs/remotes/"
+      else
+        return
+      end
     elseif vim.startswith(entry.refname, "refs/heads/") then
       prefix = "refs/heads/"
     else
@@ -313,7 +320,7 @@ git.status = function(opts)
 
   local gen_new_finder = function()
     local expand_dir = vim.F.if_nil(opts.expand_dir, true)
-    local git_cmd = { "git", "status", "-s", "--", "." }
+    local git_cmd = { "git", "status", "-z", "--", "." }
 
     if expand_dir then
       table.insert(git_cmd, #git_cmd - 1, "-u")
@@ -331,7 +338,7 @@ git.status = function(opts)
     end
 
     return finders.new_table {
-      results = output,
+      results = vim.split(output[1], " ", { trimempty = true }),
       entry_maker = vim.F.if_nil(opts.entry_maker, make_entry.gen_from_git_status(opts)),
     }
   end
@@ -350,7 +357,18 @@ git.status = function(opts)
       attach_mappings = function(prompt_bufnr, map)
         actions.git_staging_toggle:enhance {
           post = function()
-            action_state.get_current_picker(prompt_bufnr):refresh(gen_new_finder(), { reset_prompt = true })
+            local picker = action_state.get_current_picker(prompt_bufnr)
+
+            -- temporarily register a callback which keeps selection on refresh
+            local selection = picker:get_selection_row()
+            local callbacks = { unpack(picker._completion_callbacks) } -- shallow copy
+            picker:register_completion_callback(function(self)
+              self:set_selection(selection)
+              self._completion_callbacks = callbacks
+            end)
+
+            -- refresh
+            picker:refresh(gen_new_finder(), { reset_prompt = false })
           end,
         }
 
@@ -364,6 +382,8 @@ end
 local set_opts_cwd = function(opts)
   if opts.cwd then
     opts.cwd = vim.fn.expand(opts.cwd)
+  elseif opts.use_file_path then
+    opts.cwd = vim.fn.finddir(".git", vim.fn.expand "%:p" .. ";")
   else
     opts.cwd = vim.loop.cwd()
   end

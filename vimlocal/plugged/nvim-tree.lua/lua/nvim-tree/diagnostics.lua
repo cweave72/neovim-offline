@@ -27,18 +27,29 @@ end
 local function from_nvim_lsp()
   local buffer_severity = {}
 
-  for _, diagnostic in ipairs(vim.diagnostic.get(nil, { severity = M.severity })) do
-    local buf = diagnostic.bufnr
-    if vim.api.nvim_buf_is_valid(buf) then
-      local bufname = vim.api.nvim_buf_get_name(buf)
-      local lowest_severity = buffer_severity[bufname]
-      if not lowest_severity or diagnostic.severity < lowest_severity then
-        buffer_severity[bufname] = diagnostic.severity
+  local is_disabled = false
+  if vim.fn.has "nvim-0.9" == 1 then
+    is_disabled = vim.diagnostic.is_disabled()
+  end
+
+  if not is_disabled then
+    for _, diagnostic in ipairs(vim.diagnostic.get(nil, { severity = M.severity })) do
+      local buf = diagnostic.bufnr
+      if vim.api.nvim_buf_is_valid(buf) then
+        local bufname = vim.api.nvim_buf_get_name(buf)
+        local lowest_severity = buffer_severity[bufname]
+        if not lowest_severity or diagnostic.severity < lowest_severity then
+          buffer_severity[bufname] = diagnostic.severity
+        end
       end
     end
   end
 
   return buffer_severity
+end
+
+local function is_severity_in_range(severity, config)
+  return config.max <= severity and severity <= config.min
 end
 
 local function from_coc()
@@ -51,21 +62,18 @@ local function from_coc()
     return {}
   end
 
-  local buffer_severity = {}
   local diagnostics = {}
-
   for _, diagnostic in ipairs(diagnostic_list) do
     local bufname = diagnostic.file
-    local severity = severity_levels[diagnostic.severity]
+    local coc_severity = severity_levels[diagnostic.severity]
 
-    local severity_list = diagnostics[bufname] or {}
-    table.insert(severity_list, severity)
-    diagnostics[bufname] = severity_list
+    local serverity = diagnostics[bufname] or vim.diagnostic.severity.HINT
+    diagnostics[bufname] = math.min(coc_severity, serverity)
   end
 
-  for bufname, severity_list in pairs(diagnostics) do
-    if not buffer_severity[bufname] then
-      local severity = math.min(unpack(severity_list))
+  local buffer_severity = {}
+  for bufname, severity in pairs(diagnostics) do
+    if is_severity_in_range(severity, M.severity) then
       buffer_severity[bufname] = severity
     end
   end
@@ -90,7 +98,7 @@ function M.update()
     return
   end
   utils.debounce("diagnostics", M.debounce_delay, function()
-    local ps = log.profile_start "diagnostics update"
+    local profile = log.profile_start "diagnostics update"
     log.line("diagnostics", "update")
 
     local buffer_severity
@@ -114,7 +122,11 @@ function M.update()
         for line, node in pairs(nodes_by_line) do
           local nodepath = utils.canonical_path(node.absolute_path)
           log.line("diagnostics", "  %d checking nodepath '%s'", line, nodepath)
-          if M.show_on_dirs and vim.startswith(bufpath, nodepath) and (not node.open or M.show_on_open_dirs) then
+          if
+            M.show_on_dirs
+            and vim.startswith(bufpath:gsub("\\", "/"), nodepath:gsub("\\", "/") .. "/")
+            and (not node.open or M.show_on_open_dirs)
+          then
             log.line("diagnostics", " matched fold node '%s'", node.absolute_path)
             node.diag_status = severity
             add_sign(line, severity)
@@ -126,7 +138,7 @@ function M.update()
         end
       end
     end
-    log.profile_end(ps, "diagnostics update")
+    log.profile_end(profile)
   end)
 end
 

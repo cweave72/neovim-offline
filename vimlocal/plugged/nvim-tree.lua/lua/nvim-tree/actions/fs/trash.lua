@@ -2,11 +2,7 @@ local lib = require "nvim-tree.lib"
 local notify = require "nvim-tree.notify"
 
 local M = {
-  config = {
-    is_windows = vim.fn.has "win32" == 1 or vim.fn.has "win32unix" == 1,
-    is_macos = vim.fn.has "mac" == 1 or vim.fn.has "macunix" == 1,
-    is_unix = vim.fn.has "unix" == 1,
-  },
+  config = {},
 }
 
 local utils = require "nvim-tree.utils"
@@ -34,12 +30,12 @@ function M.fn(node)
   end
 
   -- configs
-  if M.config.is_unix then
+  if utils.is_unix then
     if M.config.trash.cmd == nil then
       M.config.trash.cmd = "trash"
     end
-    if M.config.trash.require_confirm == nil then
-      M.config.trash.require_confirm = true
+    if M.config.ui.confirm.trash == nil then
+      M.config.ui.confirm.trash = true
     end
   else
     notify.warn "Trash is currently a UNIX only feature!"
@@ -74,11 +70,12 @@ function M.fn(node)
           return
         end
         events._dispatch_folder_removed(node.absolute_path)
-        if M.enable_reload then
+        if not M.config.filesystem_watchers.enable then
           require("nvim-tree.actions.reloaders.reloaders").reload_explorer()
         end
       end)
     else
+      events._dispatch_will_remove_file(node.absolute_path)
       trash_path(function(_, rc)
         if rc ~= 0 then
           notify.warn("trash failed: " .. err_msg .. "; please see :help nvim-tree.trash")
@@ -86,14 +83,14 @@ function M.fn(node)
         end
         events._dispatch_file_removed(node.absolute_path)
         clear_buffer(node.absolute_path)
-        if M.enable_reload then
+        if not M.config.filesystem_watchers.enable then
           require("nvim-tree.actions.reloaders.reloaders").reload_explorer()
         end
       end)
     end
   end
 
-  if M.config.trash.require_confirm then
+  if M.config.ui.confirm.trash then
     local prompt_select = "Trash " .. node.name .. " ?"
     local prompt_input = prompt_select .. " y/n: "
     lib.prompt(prompt_input, prompt_select, { "y", "n" }, { "Yes", "No" }, function(item_short)
@@ -108,8 +105,9 @@ function M.fn(node)
 end
 
 function M.setup(opts)
-  M.config.trash = opts.trash or {}
-  M.enable_reload = not opts.filesystem_watchers.enable
+  M.config.ui = opts.ui
+  M.config.trash = opts.trash
+  M.config.filesystem_watchers = opts.filesystem_watchers
 end
 
 return M

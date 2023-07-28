@@ -10,6 +10,15 @@ local defaults = {
   terminal_colors = true,
   dim_inactive = false,
   module_default = true,
+  colorblind = {
+    enable = false,
+    simulate_only = false,
+    severity = {
+      protan = 0,
+      deutan = 0,
+      tritan = 0,
+    },
+  },
   styles = {
     comments = "NONE",
     conditionals = "NONE",
@@ -42,12 +51,17 @@ local defaults = {
       background = true,
     },
     treesitter = util.is_nvim,
+    lsp_semantic_tokens = util.is_nvim,
+    leap = {
+      background = true,
+    },
   },
 }
 
 M.options = collect.deep_copy(defaults)
 
 M.module_names = {
+  "alpha",
   "aerial",
   "barbar",
   "cmp",
@@ -62,23 +76,29 @@ M.module_names = {
   "glyph_palette",
   "hop",
   "illuminate",
+  "indent_blankline",
+  "leap",
   "lightspeed",
   "lsp_saga",
+  "lsp_semantic_tokens",
   "lsp_trouble",
   "mini",
   "modes",
   "native_lsp",
+  "navic",
   "neogit",
   "neotest",
   "neotree",
   "notify",
   "nvimtree",
   "pounce",
+  "signify",
   "sneak",
   "symbol_outline",
   "telescope",
   "treesitter",
   "tsrainbow",
+  "tsrainbow2",
   "whichkey",
 }
 
@@ -104,7 +124,7 @@ function M.get_compiled_info(opts)
 end
 
 function M.hash()
-  local hash = require("nightfox.lib.hash").hash(M.options)
+  local hash = require("nightfox.lib.hash")(M.options)
   return hash and hash or 0
 end
 

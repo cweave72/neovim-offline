@@ -119,12 +119,14 @@ filetype.detect_from_extension = function(filepath)
 end
 
 filetype.detect_from_name = function(filepath)
-  filepath = filepath:lower()
-  local split_path = vim.split(filepath, os_sep, true)
-  local fname = split_path[#split_path]
-  local match = filetype_table.file_name[fname]
-  if match then
-    return match
+  if filepath then
+    filepath = filepath:lower()
+    local split_path = vim.split(filepath, os_sep, true)
+    local fname = split_path[#split_path]
+    local match = filetype_table.file_name[fname]
+    if match then
+      return match
+    end
   end
   return ""
 end
@@ -157,6 +159,10 @@ end
 filetype.detect = function(filepath, opts)
   opts = opts or {}
   opts.fs_access = opts.fs_access or true
+
+  if type(filepath) ~= string then
+    filepath = tostring(filepath)
+  end
 
   local match = filetype.detect_from_name(filepath)
   if match ~= "" then

@@ -1,6 +1,5 @@
 local util = require 'lspconfig.util'
 local lsp = vim.lsp
-local is_windows = vim.fn.has 'win32' == 1
 
 local function fix_all(opts)
   opts = opts or {}
@@ -33,13 +32,6 @@ local function fix_all(opts)
   })
 end
 
-local bin_name = 'vscode-eslint-language-server'
-local cmd = { bin_name, '--stdio' }
-
-if is_windows then
-  cmd = { 'cmd.exe', '/C', bin_name, '--stdio' }
-end
-
 local root_file = {
   '.eslintrc',
   '.eslintrc.js',
@@ -50,22 +42,9 @@ local root_file = {
   'eslint.config.js',
 }
 
-local root_with_package = util.find_package_json_ancestor(vim.fn.expand '%:p:h')
-
-if root_with_package then
-  -- only add package.json if it contains eslintConfig field
-  local path_sep = is_windows and '\\' or '/'
-  for line in io.lines(root_with_package .. path_sep .. 'package.json') do
-    if line:find 'eslintConfig' then
-      table.insert(root_file, 'package.json')
-      break
-    end
-  end
-end
-
 return {
   default_config = {
-    cmd = cmd,
+    cmd = { 'vscode-eslint-language-server', '--stdio' },
     filetypes = {
       'javascript',
       'javascriptreact',
@@ -78,12 +57,18 @@ return {
       'astro',
     },
     -- https://eslint.org/docs/user-guide/configuring/configuration-files#configuration-file-formats
-    root_dir = util.root_pattern(unpack(root_file)),
+    root_dir = function(fname)
+      root_file = util.insert_package_json(root_file, 'eslintConfig', fname)
+      return util.root_pattern(unpack(root_file))(fname)
+    end,
     -- Refer to https://github.com/Microsoft/vscode-eslint#settings-options for documentation.
     settings = {
       validate = 'on',
       packageManager = 'npm',
       useESLintClass = false,
+      experimental = {
+        useFlatConfig = false,
+      },
       codeActionOnSave = {
         enable = false,
         mode = 'all',
@@ -93,6 +78,9 @@ return {
       onIgnoredFiles = 'off',
       rulesCustomizations = {},
       run = 'onType',
+      problems = {
+        shortenToSingleLine = false,
+      },
       -- nodePath configures the directory in which the eslint server should start its node_modules resolution.
       -- This path is relative to the workspace folder (root dir) of the server instance.
       nodePath = '',
@@ -117,11 +105,16 @@ return {
         name = vim.fn.fnamemodify(new_root_dir, ':t'),
       }
 
+      -- Support flat config
+      if vim.fn.filereadable(new_root_dir .. '/eslint.config.js') == 1 then
+        config.settings.experimental.useFlatConfig = true
+      end
+
       -- Support Yarn2 (PnP) projects
       local pnp_cjs = util.path.join(new_root_dir, '.pnp.cjs')
       local pnp_js = util.path.join(new_root_dir, '.pnp.js')
       if util.path.exists(pnp_cjs) or util.path.exists(pnp_js) then
-        config.cmd = vim.list_extend({ 'yarn', 'exec' }, cmd)
+        config.cmd = vim.list_extend({ 'yarn', 'exec' }, config.cmd)
       end
     end,
     handlers = {
@@ -175,8 +168,16 @@ npm i -g vscode-langservers-extracted
 ```
 
 `vscode-eslint-language-server` provides an `EslintFixAll` command that can be used to format a document on save:
-```vim
-autocmd BufWritePre *.tsx,*.ts,*.jsx,*.js EslintFixAll
+```lua
+lspconfig.eslint.setup({
+  --- ...
+  on_attach = function(client, bufnr)
+    vim.api.nvim_create_autocmd("BufWritePre", {
+      buffer = bufnr,
+      command = "EslintFixAll",
+    })
+  end,
+})
 ```
 
 See [vscode-eslint](https://github.com/microsoft/vscode-eslint/blob/55871979d7af184bf09af491b6ea35ebd56822cf/server/src/eslintServer.ts#L216-L229) for configuration options.

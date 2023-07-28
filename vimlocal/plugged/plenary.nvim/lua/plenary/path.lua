@@ -73,7 +73,7 @@ local _split_by_separator = (function()
 end)()
 
 local is_uri = function(filename)
-  return string.match(filename, "^%w+://") ~= nil
+  return string.match(filename, "^[%w+-.]://") ~= nil
 end
 
 local is_absolute = function(filename, sep)
@@ -221,7 +221,7 @@ function Path:new(...)
 
   if type(self) == "string" then
     table.insert(args, 1, self)
-    self = Path
+    self = Path -- luacheck: ignore
   end
 
   local path_input
@@ -576,7 +576,7 @@ function Path:copy(opts)
         { "Yes", "No" },
         { prompt = string.format("Overwrite existing %s?", dest:absolute()) },
         function(_, idx)
-          success[dest] = uv.fs_copyfile(self:absolute(), dest:absolute(), { excl = not (idx == 1) }) or false
+          success[dest] = uv.fs_copyfile(self:absolute(), dest:absolute(), { excl = idx ~= 1 }) or false
         end
       )
     else
@@ -708,10 +708,7 @@ function Path:parents()
 end
 
 function Path:is_file()
-  local stat = uv.fs_stat(self:expand())
-  if stat then
-    return stat.type == "file" and true or nil
-  end
+  return self:_stat().type == "file" and true or nil
 end
 
 -- TODO:
@@ -725,7 +722,7 @@ function Path:write(txt, flag, mode)
 
   mode = mode or 438
 
-  local fd = assert(uv.fs_open(self:expand(), flag, mode))
+  local fd = assert(uv.fs_open(self:_fs_filename(), flag, mode))
   assert(uv.fs_write(fd, txt, -1))
   assert(uv.fs_close(fd))
 end
@@ -735,7 +732,7 @@ end
 function Path:_read()
   self = check_self(self)
 
-  local fd = assert(uv.fs_open(self:expand(), "r", 438)) -- for some reason test won't pass with absolute
+  local fd = assert(uv.fs_open(self:_fs_filename(), "r", 438)) -- for some reason test won't pass with absolute
   local stat = assert(uv.fs_fstat(fd))
   local data = assert(uv.fs_read(fd, stat.size, 0))
   assert(uv.fs_close(fd))
@@ -777,7 +774,7 @@ function Path:head(lines)
   self = check_self(self)
   local chunk_size = 256
 
-  local fd = uv.fs_open(self:expand(), "r", 438)
+  local fd = uv.fs_open(self:_fs_filename(), "r", 438)
   if not fd then
     return
   end
@@ -820,7 +817,7 @@ function Path:tail(lines)
   self = check_self(self)
   local chunk_size = 256
 
-  local fd = uv.fs_open(self:expand(), "r", 438)
+  local fd = uv.fs_open(self:_fs_filename(), "r", 438)
   if not fd then
     return
   end
@@ -884,7 +881,7 @@ end
 function Path:readbyterange(offset, length)
   self = check_self(self)
 
-  local fd = uv.fs_open(self:expand(), "r", 438)
+  local fd = uv.fs_open(self:_fs_filename(), "r", 438)
   if not fd then
     return
   end
@@ -916,6 +913,18 @@ function Path:readbyterange(offset, length)
   assert(uv.fs_close(fd))
 
   return data
+end
+
+function Path:find_upwards(filename)
+  local folder = Path:new(self)
+  while self:absolute() ~= path.root do
+    local p = folder:joinpath(filename)
+    if p:exists() then
+      return p
+    end
+    folder = folder:parent()
+  end
+  return ""
 end
 
 return Path

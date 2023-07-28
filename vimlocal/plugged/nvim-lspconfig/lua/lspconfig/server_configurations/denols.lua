@@ -5,7 +5,12 @@ local function buf_cache(bufnr, client)
   local params = {}
   params['referrer'] = { uri = vim.uri_from_bufnr(bufnr) }
   params['uris'] = {}
-  client.request_sync('deno/cache', params)
+  client.request('deno/cache', params, function(err, _result, ctx)
+    if err then
+      local uri = ctx.params.referrer.uri
+      vim.api.nvim_err_writeln('cache command failed for ' .. vim.uri_to_fname(uri))
+    end
+  end, bufnr)
 end
 
 local function virtual_text_document_handler(uri, res, client)
@@ -21,7 +26,7 @@ local function virtual_text_document_handler(uri, res, client)
     return nil
   end
 
-  vim.api.nvim_buf_set_lines(bufnr, 0, -1, nil, lines)
+  vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, lines)
   vim.api.nvim_buf_set_option(bufnr, 'readonly', true)
   vim.api.nvim_buf_set_option(bufnr, 'modified', false)
   vim.api.nvim_buf_set_option(bufnr, 'modifiable', false)
@@ -38,7 +43,7 @@ local function virtual_text_document(uri, client)
   virtual_text_document_handler(uri, result, client)
 end
 
-local function denols_handler(err, result, ctx)
+local function denols_handler(err, result, ctx, config)
   if not result or vim.tbl_isempty(result) then
     return nil
   end
@@ -53,12 +58,13 @@ local function denols_handler(err, result, ctx)
     end
   end
 
-  lsp.handlers[ctx.method](err, result, ctx)
+  lsp.handlers[ctx.method](err, result, ctx, config)
 end
 
 return {
   default_config = {
     cmd = { 'deno', 'lsp' },
+    cmd_env = { NO_COLOR = true },
     filetypes = {
       'javascript',
       'javascriptreact',
@@ -74,12 +80,13 @@ return {
     },
     handlers = {
       ['textDocument/definition'] = denols_handler,
+      ['textDocument/typeDefinition'] = denols_handler,
       ['textDocument/references'] = denols_handler,
-      ['workspace/executeCommand'] = function(err, result, context)
+      ['workspace/executeCommand'] = function(err, result, context, config)
         if context.params.command == 'deno.cache' then
           buf_cache(context.bufnr, vim.lsp.get_client_by_id(context.client_id))
         else
-          lsp.handlers[context.method](err, result, context)
+          lsp.handlers[context.method](err, result, context, config)
         end
       end,
     },

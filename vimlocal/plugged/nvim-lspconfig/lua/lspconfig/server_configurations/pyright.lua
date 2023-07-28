@@ -1,12 +1,5 @@
 local util = require 'lspconfig.util'
 
-local bin_name = 'pyright-langserver'
-local cmd = { bin_name, '--stdio' }
-
-if vim.fn.has 'win32' == 1 then
-  cmd = { 'cmd.exe', '/C', bin_name, '--stdio' }
-end
-
 local root_files = {
   'pyproject.toml',
   'setup.py',
@@ -24,9 +17,20 @@ local function organize_imports()
   vim.lsp.buf.execute_command(params)
 end
 
+local function set_python_path(path)
+  local clients = vim.lsp.get_active_clients {
+    bufnr = vim.api.nvim_get_current_buf(),
+    name = 'pyright',
+  }
+  for _, client in ipairs(clients) do
+    client.config.settings = vim.tbl_deep_extend('force', client.config.settings, { python = { pythonPath = path } })
+    client.notify('workspace/didChangeConfiguration', { settings = nil })
+  end
+end
+
 return {
   default_config = {
-    cmd = cmd,
+    cmd = { 'pyright-langserver', '--stdio' },
     filetypes = { 'python' },
     root_dir = util.root_pattern(unpack(root_files)),
     single_file_support = true,
@@ -44,6 +48,12 @@ return {
     PyrightOrganizeImports = {
       organize_imports,
       description = 'Organize Imports',
+    },
+    PyrightSetPythonPath = {
+      set_python_path,
+      description = 'Reconfigure pyright with the provided python path',
+      nargs = 1,
+      complete = 'file',
     },
   },
   docs = {

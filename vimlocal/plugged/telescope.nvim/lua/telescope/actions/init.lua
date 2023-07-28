@@ -2,9 +2,9 @@
 ---@config { ["module"] = "telescope.actions" }
 
 ---@brief [[
---- Actions functions that are useful for people creating their own mappings.
+--- These functions are useful for people creating their own mappings.
 ---
---- Actions can be either normal functions that expect the prompt_bufnr as
+--- Actions can be either normal functions that expect the `prompt_bufnr` as
 --- first argument (1) or they can be a custom telescope type called "action" (2).
 ---
 --- (1) The `prompt_bufnr` of a normal function denotes the identifier of your
@@ -45,7 +45,7 @@
 ---   action(bufnr)
 --- </code>
 ---
---- Another interesing thing to do is that these actions now have functions you
+--- Another interesting thing to do is that these actions now have functions you
 --- can call. These functions include `:replace(f)`, `:replace_if(f, c)`,
 --- `replace_map(tbl)` and `enhance(tbl)`. More information on these functions
 --- can be found in the `developers.md` and `lua/tests/automated/action_spec.lua`
@@ -74,6 +74,12 @@ local actions = setmetatable({}, {
     error("Key does not exist for 'telescope.actions': " .. tostring(k))
   end,
 })
+
+local append_to_history = function(prompt_bufnr)
+  action_state
+    .get_current_history()
+    :append(action_state.get_current_line(), action_state.get_current_picker(prompt_bufnr))
+end
 
 --- Move the selection to the next entry
 ---@param prompt_bufnr number: The prompt bufnr
@@ -150,7 +156,7 @@ actions.toggle_selection = function(prompt_bufnr)
 end
 
 --- Multi select all entries.
---- - Note: selected entries may include results not visible in the results popup.
+--- - Note: selected entries may include results not visible in the results pop up.
 ---@param prompt_bufnr number: The prompt bufnr
 actions.select_all = function(prompt_bufnr)
   local current_picker = action_state.get_current_picker(prompt_bufnr)
@@ -187,7 +193,7 @@ actions.drop_all = function(prompt_bufnr)
 end
 
 --- Toggle multi selection for all entries.
---- - Note: toggled entries may include results not visible in the results popup.
+--- - Note: toggled entries may include results not visible in the results pop up.
 ---@param prompt_bufnr number: The prompt bufnr
 actions.toggle_all = function(prompt_bufnr)
   local current_picker = action_state.get_current_picker(prompt_bufnr)
@@ -216,6 +222,18 @@ actions.preview_scrolling_down = function(prompt_bufnr)
   action_set.scroll_previewer(prompt_bufnr, 1)
 end
 
+--- Scroll the preview window to the left
+---@param prompt_bufnr number: The prompt bufnr
+actions.preview_scrolling_left = function(prompt_bufnr)
+  action_set.scroll_horizontal_previewer(prompt_bufnr, -1)
+end
+
+--- Scroll the preview window to the right
+---@param prompt_bufnr number: The prompt bufnr
+actions.preview_scrolling_right = function(prompt_bufnr)
+  action_set.scroll_horizontal_previewer(prompt_bufnr, 1)
+end
+
 --- Scroll the results window up
 ---@param prompt_bufnr number: The prompt bufnr
 actions.results_scrolling_up = function(prompt_bufnr)
@@ -226,6 +244,18 @@ end
 ---@param prompt_bufnr number: The prompt bufnr
 actions.results_scrolling_down = function(prompt_bufnr)
   action_set.scroll_results(prompt_bufnr, 1)
+end
+
+--- Scroll the results window to the left
+---@param prompt_bufnr number: The prompt bufnr
+actions.results_scrolling_left = function(prompt_bufnr)
+  action_set.scroll_horizontal_results(prompt_bufnr, -1)
+end
+
+--- Scroll the results window to the right
+---@param prompt_bufnr number: The prompt bufnr
+actions.results_scrolling_right = function(prompt_bufnr)
+  action_set.scroll_horizontal_results(prompt_bufnr, 1)
 end
 
 --- Center the cursor in the window, can be used after selecting a file to edit
@@ -241,11 +271,7 @@ end
 --- i.e. open the selection in the current buffer
 ---@param prompt_bufnr number: The prompt bufnr
 actions.select_default = {
-  pre = function(prompt_bufnr)
-    action_state
-      .get_current_history()
-      :append(action_state.get_current_line(), action_state.get_current_picker(prompt_bufnr))
-  end,
+  pre = append_to_history,
   action = function(prompt_bufnr)
     return action_set.select(prompt_bufnr, "default")
   end,
@@ -257,11 +283,7 @@ actions.select_default = {
 --- i.e. open the selection in a new horizontal split
 ---@param prompt_bufnr number: The prompt bufnr
 actions.select_horizontal = {
-  pre = function(prompt_bufnr)
-    action_state
-      .get_current_history()
-      :append(action_state.get_current_line(), action_state.get_current_picker(prompt_bufnr))
-  end,
+  pre = append_to_history,
   action = function(prompt_bufnr)
     return action_set.select(prompt_bufnr, "horizontal")
   end,
@@ -273,11 +295,7 @@ actions.select_horizontal = {
 --- i.e. open the selection in a new vertical split
 ---@param prompt_bufnr number: The prompt bufnr
 actions.select_vertical = {
-  pre = function(prompt_bufnr)
-    action_state
-      .get_current_history()
-      :append(action_state.get_current_line(), action_state.get_current_picker(prompt_bufnr))
-  end,
+  pre = append_to_history,
   action = function(prompt_bufnr)
     return action_set.select(prompt_bufnr, "vertical")
   end,
@@ -289,11 +307,7 @@ actions.select_vertical = {
 --- i.e. open the selection in a new tab
 ---@param prompt_bufnr number: The prompt bufnr
 actions.select_tab = {
-  pre = function(prompt_bufnr)
-    action_state
-      .get_current_history()
-      :append(action_state.get_current_line(), action_state.get_current_picker(prompt_bufnr))
-  end,
+  pre = append_to_history,
   action = function(prompt_bufnr)
     return action_set.select(prompt_bufnr, "tab")
   end,
@@ -305,11 +319,7 @@ actions.select_tab = {
 --- i.e. open the selection in a window
 ---@param prompt_bufnr number: The prompt bufnr
 actions.select_drop = {
-  pre = function(prompt_bufnr)
-    action_state
-      .get_current_history()
-      :append(action_state.get_current_line(), action_state.get_current_picker(prompt_bufnr))
-  end,
+  pre = append_to_history,
   action = function(prompt_bufnr)
     return action_set.select(prompt_bufnr, "drop")
   end,
@@ -321,11 +331,7 @@ actions.select_drop = {
 --- i.e. open the selection in a new tab
 ---@param prompt_bufnr number: The prompt bufnr
 actions.select_tab_drop = {
-  pre = function(prompt_bufnr)
-    action_state
-      .get_current_history()
-      :append(action_state.get_current_line(), action_state.get_current_picker(prompt_bufnr))
-  end,
+  pre = append_to_history,
   action = function(prompt_bufnr)
     return action_set.select(prompt_bufnr, "tab drop")
   end,
@@ -394,16 +400,17 @@ end
 
 local set_edit_line = function(prompt_bufnr, fname, prefix, postfix)
   postfix = vim.F.if_nil(postfix, "")
+  postfix = a.nvim_replace_termcodes(postfix, true, false, true)
   local selection = action_state.get_selected_entry()
   if selection == nil then
     utils.__warn_no_selection(fname)
     return
   end
   actions.close(prompt_bufnr)
-  a.nvim_feedkeys(a.nvim_replace_termcodes(prefix .. selection.value .. postfix, true, false, true), "t", true)
+  a.nvim_feedkeys(prefix .. selection.value .. postfix, "n", true)
 end
 
---- Set a value in the command line and dont run it, making it editable.
+--- Set a value in the command line and don't run it, making it editable.
 ---@param prompt_bufnr number: The prompt bufnr
 actions.edit_command_line = function(prompt_bufnr)
   set_edit_line(prompt_bufnr, "actions.edit_command_line", ":")
@@ -422,7 +429,7 @@ actions.set_command_line = function(prompt_bufnr)
   vim.cmd(selection.value)
 end
 
---- Set a value in the search line and dont search for it, making it editable.
+--- Set a value in the search line and don't search for it, making it editable.
 ---@param prompt_bufnr number: The prompt bufnr
 actions.edit_search_line = function(prompt_bufnr)
   set_edit_line(prompt_bufnr, "actions.edit_search_line", "/")
@@ -685,18 +692,34 @@ actions.git_track_branch = make_git_branch_action {
   end,
 }
 
---- Delete the currently selected branch
+--- Delete all currently selected branches
 ---@param prompt_bufnr number: The prompt bufnr
-actions.git_delete_branch = make_git_branch_action {
-  should_confirm = true,
-  action_name = "actions.git_delete_branch",
-  confirmation_question = "Do you really wanna delete branch %s? [Y/n] ",
-  success_message = "Deleted branch: %s",
-  error_message = "Error when deleting branch: %s. Git returned: '%s'",
-  command = function(branch_name)
-    return { "git", "branch", "-D", branch_name }
-  end,
-}
+actions.git_delete_branch = function(prompt_bufnr)
+  local confirmation = vim.fn.input "Do you really want to delete the selected branches? [Y/n] "
+  if confirmation ~= "" and string.lower(confirmation) ~= "y" then
+    return
+  end
+
+  local picker = action_state.get_current_picker(prompt_bufnr)
+  local action_name = "actions.git_delete_branch"
+  picker:delete_selection(function(selection)
+    local branch = selection.value
+    print("Deleting branch " .. branch)
+    local _, ret, stderr = utils.get_os_command_output({ "git", "branch", "-D", branch }, picker.cwd)
+    if ret == 0 then
+      utils.notify(action_name, {
+        msg = string.format("Deleted branch: %s", branch),
+        level = "INFO",
+      })
+    else
+      utils.notify(action_name, {
+        msg = string.format("Error when deleting branch: %s. Git returned: '%s'", branch, table.concat(stderr, " ")),
+        level = "ERROR",
+      })
+    end
+    return ret == 0
+  end)
+end
 
 --- Merge the currently selected branch
 ---@param prompt_bufnr number: The prompt bufnr
@@ -781,7 +804,7 @@ actions.git_checkout_current_buffer = function(prompt_bufnr)
     return
   end
   actions.close(prompt_bufnr)
-  utils.get_os_command_output({ "git", "checkout", selection.value, "--", selection.file }, cwd)
+  utils.get_os_command_output({ "git", "checkout", selection.value, "--", selection.current_file }, cwd)
   vim.cmd "checktime"
 end
 
@@ -864,51 +887,68 @@ end
 
 --- Sends the selected entries to the quickfix list, replacing the previous entries.
 ---@param prompt_bufnr number: The prompt bufnr
-actions.send_selected_to_qflist = function(prompt_bufnr)
-  send_selected_to_qf(prompt_bufnr, " ")
-end
-
+actions.send_selected_to_qflist = {
+  pre = append_to_history,
+  action = function(prompt_bufnr)
+    send_selected_to_qf(prompt_bufnr, " ")
+  end,
+}
 --- Adds the selected entries to the quickfix list, keeping the previous entries.
 ---@param prompt_bufnr number: The prompt bufnr
-actions.add_selected_to_qflist = function(prompt_bufnr)
-  send_selected_to_qf(prompt_bufnr, "a")
-end
-
+actions.add_selected_to_qflist = {
+  pre = append_to_history,
+  action = function(prompt_bufnr)
+    send_selected_to_qf(prompt_bufnr, "a")
+  end,
+}
 --- Sends all entries to the quickfix list, replacing the previous entries.
 ---@param prompt_bufnr number: The prompt bufnr
-actions.send_to_qflist = function(prompt_bufnr)
-  send_all_to_qf(prompt_bufnr, " ")
-end
-
+actions.send_to_qflist = {
+  pre = append_to_history,
+  action = function(prompt_bufnr)
+    send_all_to_qf(prompt_bufnr, " ")
+  end,
+}
 --- Adds all entries to the quickfix list, keeping the previous entries.
 ---@param prompt_bufnr number: The prompt bufnr
-actions.add_to_qflist = function(prompt_bufnr)
-  send_all_to_qf(prompt_bufnr, "a")
-end
-
+actions.add_to_qflist = {
+  pre = append_to_history,
+  action = function(prompt_bufnr)
+    send_all_to_qf(prompt_bufnr, "a")
+  end,
+}
 --- Sends the selected entries to the location list, replacing the previous entries.
 ---@param prompt_bufnr number: The prompt bufnr
-actions.send_selected_to_loclist = function(prompt_bufnr)
-  send_selected_to_qf(prompt_bufnr, " ", "loclist")
-end
-
+actions.send_selected_to_loclist = {
+  pre = append_to_history,
+  action = function(prompt_bufnr)
+    send_selected_to_qf(prompt_bufnr, " ", "loclist")
+  end,
+}
 --- Adds the selected entries to the location list, keeping the previous entries.
 ---@param prompt_bufnr number: The prompt bufnr
-actions.add_selected_to_loclist = function(prompt_bufnr)
-  send_selected_to_qf(prompt_bufnr, "a", "loclist")
-end
-
+actions.add_selected_to_loclist = {
+  pre = append_to_history,
+  action = function(prompt_bufnr)
+    send_selected_to_qf(prompt_bufnr, "a", "loclist")
+  end,
+}
 --- Sends all entries to the location list, replacing the previous entries.
 ---@param prompt_bufnr number: The prompt bufnr
-actions.send_to_loclist = function(prompt_bufnr)
-  send_all_to_qf(prompt_bufnr, " ", "loclist")
-end
-
+actions.send_to_loclist = {
+  pre = append_to_history,
+  action = function(prompt_bufnr)
+    send_all_to_qf(prompt_bufnr, " ", "loclist")
+  end,
+}
 --- Adds all entries to the location list, keeping the previous entries.
 ---@param prompt_bufnr number: The prompt bufnr
-actions.add_to_loclist = function(prompt_bufnr)
-  send_all_to_qf(prompt_bufnr, "a", "loclist")
-end
+actions.add_to_loclist = {
+  pre = append_to_history,
+  action = function(prompt_bufnr)
+    send_all_to_qf(prompt_bufnr, "a", "loclist")
+  end,
+}
 
 local smart_send = function(prompt_bufnr, mode, target)
   local picker = action_state.get_current_picker(prompt_bufnr)
@@ -922,31 +962,39 @@ end
 --- Sends the selected entries to the quickfix list, replacing the previous entries.
 --- If no entry was selected, sends all entries.
 ---@param prompt_bufnr number: The prompt bufnr
-actions.smart_send_to_qflist = function(prompt_bufnr)
-  smart_send(prompt_bufnr, " ")
-end
-
+actions.smart_send_to_qflist = {
+  pre = append_to_history,
+  action = function(prompt_bufnr)
+    smart_send(prompt_bufnr, " ")
+  end,
+}
 --- Adds the selected entries to the quickfix list, keeping the previous entries.
 --- If no entry was selected, adds all entries.
 ---@param prompt_bufnr number: The prompt bufnr
-actions.smart_add_to_qflist = function(prompt_bufnr)
-  smart_send(prompt_bufnr, "a")
-end
-
+actions.smart_add_to_qflist = {
+  pre = append_to_history,
+  action = function(prompt_bufnr)
+    smart_send(prompt_bufnr, "a")
+  end,
+}
 --- Sends the selected entries to the location list, replacing the previous entries.
 --- If no entry was selected, sends all entries.
 ---@param prompt_bufnr number: The prompt bufnr
-actions.smart_send_to_loclist = function(prompt_bufnr)
-  smart_send(prompt_bufnr, " ", "loclist")
-end
-
+actions.smart_send_to_loclist = {
+  pre = append_to_history,
+  action = function(prompt_bufnr)
+    smart_send(prompt_bufnr, " ", "loclist")
+  end,
+}
 --- Adds the selected entries to the location list, keeping the previous entries.
 --- If no entry was selected, adds all entries.
 ---@param prompt_bufnr number: The prompt bufnr
-actions.smart_add_to_loclist = function(prompt_bufnr)
-  smart_send(prompt_bufnr, "a", "loclist")
-end
-
+actions.smart_add_to_loclist = {
+  pre = append_to_history,
+  action = function(prompt_bufnr)
+    smart_send(prompt_bufnr, "a", "loclist")
+  end,
+}
 --- Open completion menu containing the tags which can be used to filter the results in a faster way
 ---@param prompt_bufnr number: The prompt bufnr
 actions.complete_tag = function(prompt_bufnr)
@@ -1037,7 +1085,7 @@ end
 --- `actions.smart_send_to_qflist + actions.open_qflist`
 ---@param prompt_bufnr number: The prompt bufnr
 actions.open_qflist = function(prompt_bufnr)
-  vim.cmd [[copen]]
+  vim.cmd [[botright copen]]
 end
 
 --- Open the location list. It makes sense to use this in combination with one of the send_to_loclist actions
@@ -1154,26 +1202,10 @@ actions.which_key = function(prompt_bufnr, opts)
   local mappings = {}
   local mode = a.nvim_get_mode().mode
   for _, v in pairs(action_utils.get_registered_mappings(prompt_bufnr)) do
-    -- holds true for registered keymaps
-    if type(v.func) == "table" then
-      local name = ""
-      for _, action in ipairs(v.func) do
-        if type(action) == "string" then
-          name = name == "" and action or name .. " + " .. action
-        end
-      end
-      if name and name ~= "which_key" and name ~= "nop" then
-        if not opts.only_show_current_mode or mode == v.mode then
-          table.insert(mappings, { mode = v.mode, keybind = v.keybind, name = name })
-        end
-      end
-    elseif type(v.func) == "function" then
+    if v.desc and v.desc ~= "which_key" and v.desc ~= "nop" then
       if not opts.only_show_current_mode or mode == v.mode then
-        local fname = action_utils._get_anon_function_name(v.func)
-        -- telescope.setup mappings might result in function names that reflect the keys
-        fname = fname:lower() == v.keybind:lower() and "<anonymous>" or fname
-        table.insert(mappings, { mode = v.mode, keybind = v.keybind, name = fname })
-        if fname == "<anonymous>" then
+        table.insert(mappings, { mode = v.mode, keybind = v.keybind, name = v.desc })
+        if v.desc == "<anonymous>" then
           utils.notify("actions.which_key", {
             msg = "No name available for anonymous functions.",
             level = "INFO",
@@ -1306,20 +1338,30 @@ end
 ---@param prompt_bufnr number: The prompt bufnr
 actions.to_fuzzy_refine = function(prompt_bufnr)
   local line = action_state.get_current_line()
-  local prefix = (function()
+  local opts = (function()
+    local opts = {
+      sorter = conf.generic_sorter {},
+    }
+
     local title = action_state.get_current_picker(prompt_bufnr).prompt_title
     if title == "Live Grep" then
-      return "Find Word"
+      opts.prefix = "Find Word"
     elseif title == "LSP Dynamic Workspace Symbols" then
-      return "LSP Workspace Symbols"
+      opts.prefix = "LSP Workspace Symbols"
+      opts.sorter = conf.prefilter_sorter {
+        tag = "symbol_type",
+        sorter = opts.sorter,
+      }
     else
-      return "Fuzzy over"
+      opts.prefix = "Fuzzy over"
     end
+
+    return opts
   end)()
 
   require("telescope.actions.generate").refine(prompt_bufnr, {
-    prompt_title = string.format("%s (%s)", prefix, line),
-    sorter = conf.generic_sorter {},
+    prompt_title = string.format("%s (%s)", opts.prefix, line),
+    sorter = opts.sorter,
   })
 end
 

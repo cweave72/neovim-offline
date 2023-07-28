@@ -1,7 +1,6 @@
 local debug = require('cmp.utils.debug')
 local str = require('cmp.utils.str')
 local char = require('cmp.utils.char')
-local pattern = require('cmp.utils.pattern')
 local feedkeys = require('cmp.utils.feedkeys')
 local async = require('cmp.utils.async')
 local keymap = require('cmp.utils.keymap')
@@ -56,6 +55,7 @@ end
 ---@param option? cmp.ContextOption
 ---@return cmp.Context
 core.get_context = function(self, option)
+  self.context:abort()
   local prev = self.context:clone()
   prev.prev_context = nil
   prev.cache = nil
@@ -189,6 +189,18 @@ core.on_moved = function(self)
   self:filter()
 end
 
+-- Find the suffix for the specified line
+local function find_line_suffix(line)
+  local i = #line
+  while i > 0 do
+    if line:sub(i, i):find('%s') then
+      return line:sub(i + 1)
+    end
+    i = i - 1
+  end
+  return line
+end
+
 ---Check autoindent
 ---@param trigger_event cmp.TriggerEvent
 ---@param callback function
@@ -202,7 +214,7 @@ core.autoindent = function(self, trigger_event, callback)
 
   -- Check prefix
   local cursor_before_line = api.get_cursor_before_line()
-  local prefix = pattern.matchstr('[^[:blank:]]\\+$', cursor_before_line) or ''
+  local prefix = find_line_suffix(cursor_before_line) or ''
   if #prefix == 0 then
     return callback()
   end
@@ -296,7 +308,7 @@ core.complete = function(self, ctx)
 end
 
 ---Update completion menu
-core.filter = async.throttle(function(self)
+local async_filter = async.wrap(function(self)
   self.filter.timeout = config.get().performance.throttle
 
   -- Check invalid condition.
@@ -323,20 +335,17 @@ core.filter = async.throttle(function(self)
   local ctx = self:get_context()
 
   -- Display completion results.
-  self.view:open(ctx, sources)
+  local did_open = self.view:open(ctx, sources)
+  local fetching = #self:get_sources(function(s)
+    return s.status == source.SourceStatus.FETCHING
+  end)
 
   -- Check onetime config.
-  if #self:get_sources(function(s)
-    if s.status == source.SourceStatus.FETCHING then
-      return true
-    elseif #s:get_entries(ctx) > 0 then
-      return true
-    end
-    return false
-  end) == 0 then
+  if not did_open and fetching == 0 then
     config.set_onetime({})
   end
-end, config.get().performance.throttle)
+end)
+core.filter = async.throttle(async_filter, config.get().performance.throttle)
 
 ---Confirm completion.
 ---@param e cmp.Entry
@@ -352,6 +361,10 @@ core.confirm = function(self, e, option, callback)
   e.confirmed = true
 
   debug.log('entry.confirm', e:get_completion_item())
+
+  async.sync(function(done)
+    e:resolve(done)
+  end, config.get().performance.confirm_resolve_timeout)
 
   local release = self:suspend()
 
@@ -369,6 +382,7 @@ core.confirm = function(self, e, option, callback)
     feedkeys.call(table.concat(keys, ''), 'in')
   end)
   feedkeys.call('', 'n', function()
+    -- Restore the line at the time of request.
     local ctx = context.new()
     if api.is_cmdline_mode() then
       local keys = {}
@@ -377,18 +391,21 @@ core.confirm = function(self, e, option, callback)
       feedkeys.call(table.concat(keys, ''), 'in')
     else
       vim.cmd([[silent! undojoin]])
-      vim.api.nvim_buf_set_text(0, ctx.cursor.row - 1, e:get_offset() - 1, ctx.cursor.row - 1, ctx.cursor.col - 1, {
-        string.sub(e.context.cursor_before_line, e:get_offset()),
+      -- This logic must be used nvim_buf_set_text.
+      -- If not used, the snippet engine's placeholder wil be broken.
+      vim.api.nvim_buf_set_text(0, e.context.cursor.row - 1, e:get_offset() - 1, ctx.cursor.row - 1, ctx.cursor.col - 1, {
+        e.context.cursor_before_line:sub(e:get_offset()),
       })
       vim.api.nvim_win_set_cursor(0, { e.context.cursor.row, e.context.cursor.col - 1 })
     end
   end)
   feedkeys.call('', 'n', function()
+    -- Apply additionalTextEdits.
     local ctx = context.new()
-    if #(misc.safe(e:get_completion_item().additionalTextEdits) or {}) == 0 then
+    if #(e:get_completion_item().additionalTextEdits or {}) == 0 then
       e:resolve(function()
         local new = context.new()
-        local text_edits = misc.safe(e:get_completion_item().additionalTextEdits) or {}
+        local text_edits = e:get_completion_item().additionalTextEdits or {}
         if #text_edits == 0 then
           return
         end
@@ -419,9 +436,13 @@ core.confirm = function(self, e, option, callback)
   feedkeys.call('', 'n', function()
     local ctx = context.new()
     local completion_item = misc.copy(e:get_completion_item())
-    if not misc.safe(completion_item.textEdit) then
+    if not completion_item.textEdit then
       completion_item.textEdit = {}
-      completion_item.textEdit.newText = misc.safe(completion_item.insertText) or completion_item.word or completion_item.label
+      local insertText = completion_item.insertText
+      if misc.empty(insertText) then
+        insertText = nil
+      end
+      completion_item.textEdit.newText = insertText or completion_item.word or completion_item.label
     end
     local behavior = option.behavior or config.get().confirmation.default_behavior
     if behavior == types.cmp.ConfirmBehavior.Replace then
@@ -433,13 +454,27 @@ core.confirm = function(self, e, option, callback)
     local diff_before = math.max(0, e.context.cursor.col - (completion_item.textEdit.range.start.character + 1))
     local diff_after = math.max(0, (completion_item.textEdit.range['end'].character + 1) - e.context.cursor.col)
     local new_text = completion_item.textEdit.newText
-
+    completion_item.textEdit.range.start.line = ctx.cursor.line
+    completion_item.textEdit.range.start.character = (ctx.cursor.col - 1) - diff_before
+    completion_item.textEdit.range['end'].line = ctx.cursor.line
+    completion_item.textEdit.range['end'].character = (ctx.cursor.col - 1) + diff_after
     if api.is_insert_mode() then
-      completion_item.textEdit.range.start.line = ctx.cursor.line
-      completion_item.textEdit.range.start.character = (e.context.cursor.col - 1) - diff_before
-      completion_item.textEdit.range['end'].line = ctx.cursor.line
-      completion_item.textEdit.range['end'].character = (ctx.cursor.col - 1) + diff_after
-
+      if false then
+        --To use complex expansion debug.
+        vim.print({ -- luacheck: ignore
+          item = e:get_completion_item(),
+          diff_before = diff_before,
+          diff_after = diff_after,
+          new_text = new_text,
+          text_edit_new_text = completion_item.textEdit.newText,
+          range_start = completion_item.textEdit.range.start.character,
+          range_end = completion_item.textEdit.range['end'].character,
+          original_range_start = e:get_completion_item().textEdit.range.start.character,
+          original_range_end = e:get_completion_item().textEdit.range['end'].character,
+          cursor_line = ctx.cursor_line,
+          cursor_col0 = ctx.cursor.col - 1,
+        })
+      end
       local is_snippet = completion_item.insertTextFormat == types.lsp.InsertTextFormat.Snippet
       if is_snippet then
         completion_item.textEdit.newText = ''

@@ -1,7 +1,13 @@
-local M = {
-  sort_by = nil,
-  node_comparator = nil,
-}
+local M = {}
+
+local C = {}
+
+--- Predefined comparator, defaulting to name
+--- @param sort_by string as per options
+--- @return function
+local function get_comparator(sort_by)
+  return C[sort_by] or C.name
+end
 
 ---Create a shallow copy of a portion of a list.
 ---@param t table
@@ -62,11 +68,10 @@ local function split_merge(t, first, last, comparator)
   merge(t, first, mid, last, comparator)
 end
 
----Perform a merge sort on a given list.
----@param t any[]
----@param comparator function|nil
-function M.merge_sort(t, comparator)
-  if type(M.sort_by) == "function" then
+---Perform a merge sort using sort_by option.
+---@param t table nodes
+function M.sort(t)
+  if C.user then
     local t_user = {}
     local origin_index = {}
 
@@ -75,6 +80,7 @@ function M.merge_sort(t, comparator)
         absolute_path = n.absolute_path,
         executable = n.executable,
         extension = n.extension,
+        filetype = vim.filetype.match { filename = n.name },
         link_to = n.link_to,
         name = n.name,
         type = n.type,
@@ -82,7 +88,11 @@ function M.merge_sort(t, comparator)
       table.insert(origin_index, n)
     end
 
-    M.sort_by(t_user)
+    local predefined = C.user(t_user)
+    if predefined then
+      split_merge(t, 1, #t, get_comparator(predefined))
+      return
+    end
 
     -- do merge sort for prevent memory exceed
     local user_index = {}
@@ -105,12 +115,7 @@ function M.merge_sort(t, comparator)
 
     split_merge(t, 1, #t, mini_comparator) -- sort by user order
   else
-    if not comparator then
-      comparator = function(left, right)
-        return left < right
-      end
-    end
-    split_merge(t, 1, #t, comparator)
+    split_merge(t, 1, #t, get_comparator(M.config.sort_by))
   end
 end
 
@@ -131,15 +136,15 @@ local function node_comparator_name_ignorecase_or_not(a, b, ignorecase)
   end
 end
 
-function M.node_comparator_name_case_sensisive(a, b)
+function C.case_sensitive(a, b)
   return node_comparator_name_ignorecase_or_not(a, b, false)
 end
 
-function M.node_comparator_name_ignorecase(a, b)
+function C.name(a, b)
   return node_comparator_name_ignorecase_or_not(a, b, true)
 end
 
-function M.node_comparator_modification_time(a, b)
+function C.modification_time(a, b)
   if not (a and b) then
     return true
   end
@@ -163,7 +168,57 @@ function M.node_comparator_modification_time(a, b)
   return last_modified_b <= last_modified_a
 end
 
-function M.node_comparator_extension(a, b)
+function C.suffix(a, b)
+  if not (a and b) then
+    return true
+  end
+
+  -- directories go first
+  if a.nodes and not b.nodes then
+    return true
+  elseif not a.nodes and b.nodes then
+    return false
+  elseif a.nodes and b.nodes then
+    return C.name(a, b)
+  end
+
+  -- dotfiles go second
+  if a.name:sub(1, 1) == "." and b.name:sub(1, 1) ~= "." then
+    return true
+  elseif a.name:sub(1, 1) ~= "." and b.name:sub(1, 1) == "." then
+    return false
+  elseif a.name:sub(1, 1) == "." and b.name:sub(1, 1) == "." then
+    return C.name(a, b)
+  end
+
+  -- unsuffixed go third
+  local a_suffix_ndx = a.name:find "%.%w+$"
+  local b_suffix_ndx = b.name:find "%.%w+$"
+
+  if not a_suffix_ndx and b_suffix_ndx then
+    return true
+  elseif a_suffix_ndx and not b_suffix_ndx then
+    return false
+  elseif not (a_suffix_ndx and b_suffix_ndx) then
+    return C.name(a, b)
+  end
+
+  -- finally, compare by suffixes
+  local a_suffix = a.name:sub(a_suffix_ndx)
+  local b_suffix = b.name:sub(b_suffix_ndx)
+
+  if a_suffix and not b_suffix then
+    return true
+  elseif not a_suffix and b_suffix then
+    return false
+  elseif a_suffix:lower() == b_suffix:lower() then
+    return C.name(a, b)
+  end
+
+  return a_suffix:lower() < b_suffix:lower()
+end
+
+function C.extension(a, b)
   if not (a and b) then
     return true
   end
@@ -174,31 +229,53 @@ function M.node_comparator_extension(a, b)
     return false
   end
 
-  if not (a.extension and b.extension) then
-    return true
-  end
-
   if a.extension and not b.extension then
     return true
   elseif not a.extension and b.extension then
     return false
   end
 
-  return a.extension:lower() <= b.extension:lower()
+  local a_ext = (a.extension or ""):lower()
+  local b_ext = (b.extension or ""):lower()
+  if a_ext == b_ext then
+    return C.name(a, b)
+  end
+
+  return a_ext < b_ext
+end
+
+function C.filetype(a, b)
+  local a_ft = vim.filetype.match { filename = a.name }
+  local b_ft = vim.filetype.match { filename = b.name }
+
+  -- directories first
+  if a.nodes and not b.nodes then
+    return true
+  elseif not a.nodes and b.nodes then
+    return false
+  end
+
+  -- one is nil, the other wins
+  if a_ft and not b_ft then
+    return true
+  elseif not a_ft and b_ft then
+    return false
+  end
+
+  -- same filetype or both nil, sort by name
+  if a_ft == b_ft then
+    return C.name(a, b)
+  end
+
+  return a_ft < b_ft
 end
 
 function M.setup(opts)
-  M.sort_by = opts.sort_by
-  if M.sort_by and type(M.sort_by) == "function" then
-    M.node_comparator = M.sort_by
-  elseif M.sort_by == "modification_time" then
-    M.node_comparator = M.node_comparator_modification_time
-  elseif M.sort_by == "case_sensitive" then
-    M.node_comparator = M.node_comparator_name_case_sensisive
-  elseif M.sort_by == "extension" then
-    M.node_comparator = M.node_comparator_extension
-  else
-    M.node_comparator = M.node_comparator_name_ignorecase
+  M.config = {}
+  M.config.sort_by = opts.sort_by
+
+  if type(opts.sort_by) == "function" then
+    C.user = opts.sort_by
   end
 end
 

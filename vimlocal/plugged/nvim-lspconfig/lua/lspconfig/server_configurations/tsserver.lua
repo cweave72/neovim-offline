@@ -1,16 +1,9 @@
 local util = require 'lspconfig.util'
 
-local bin_name = 'typescript-language-server'
-local cmd = { bin_name, '--stdio' }
-
-if vim.fn.has 'win32' == 1 then
-  cmd = { 'cmd.exe', '/C', bin_name, '--stdio' }
-end
-
 return {
   default_config = {
     init_options = { hostInfo = 'neovim' },
-    cmd = cmd,
+    cmd = { 'typescript-language-server', '--stdio' },
     filetypes = {
       'javascript',
       'javascriptreact',
@@ -23,10 +16,11 @@ return {
       return util.root_pattern 'tsconfig.json'(fname)
         or util.root_pattern('package.json', 'jsconfig.json', '.git')(fname)
     end,
+    single_file_support = true,
   },
   docs = {
     description = [[
-https://github.com/theia-ide/typescript-language-server
+https://github.com/typescript-language-server/typescript-language-server
 
 `typescript-language-server` depends on `typescript`. Both packages can be installed via `npm`:
 ```sh
